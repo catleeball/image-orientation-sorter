@@ -4,7 +4,7 @@
 # - https://doc.rust-lang.org/cargo/reference/cargo-targets.html
 
 [package]
-name = "tmnt-bot"
+name = "imgorisort"
 version = "0.1.0"
 authors = ["🎷🐛 Lee Ball <lee.cat.ball@gmail.com>"]
 edition = "2018"
@@ -13,3 +13,8 @@ readme = "README.md"
 homepage = "https://github.com/catleeball/image-orientation-sorter"
 repository = "https://github.com/catleeball/image-orientation-sorter"
 description = "Sort images in a directory by orientation: landscape, portrait, or square."
+
+[dependencies]
+clap = "^2.33.1"
+image = "^0.23.6"
+failure = "^0.1.8"
