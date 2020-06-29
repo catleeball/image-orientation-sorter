@@ -13,7 +13,7 @@ use walkdir::WalkDir;
 struct Opt {
     #[structopt(parse(from_os_str), help = "Directory containing image files to sort by orientation.")]
     input_dir: PathBuf,
-    #[structopt(parse(from_os_str), help = "Directory to output sorted images into")]
+    #[structopt(parse(from_os_str), help = "Directory to output sorted images into.")]
     output_dir: PathBuf,
     #[structopt(short, long, help = "Recurse into subdirectories.")]
     recursive: bool,
@@ -21,11 +21,13 @@ struct Opt {
     mv: bool,
     #[structopt(short, long, help = "Prepend 'portrait', 'landscape', or 'square' to output image filenames.")]
     prefix: bool,
+    #[structopt(long, help = "Guess if a file is an image based on file header rather than file extension. Performs more slowly than reading extensions.")]
+    read_headers: bool,
     #[structopt(short, long, parse(from_occurrences), help = "Increase output verbosity by adding more flags: [-v|-vv|-vvv]")]
     verbose: usize,
     #[structopt(short, long, help = "Do not print anything to stdout or stderr.")]
     quiet: bool,
-    #[structopt(short, long, help = "Do not actually move any files. Implies verbose unless --quiet is present.")]
+    #[structopt(short, long, help = "Do not actually move or copy any files. Implies -vvv unless --quiet is present.")]
     dry_run: bool,
 }
 
