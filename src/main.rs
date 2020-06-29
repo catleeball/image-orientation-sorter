@@ -3,7 +3,6 @@ extern crate log;
 extern crate stderrlog;
 
 use failure::Error;
-use std::fs;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use walkdir::WalkDir;
@@ -33,15 +32,8 @@ struct Opt {
 
 fn main() -> Result<(), Error>{
     let opt = init();
-
-    if opt.recursive {
-        recursive_rw_loop(opt.input_dir)?;
-    } else {
-        rw_loop(opt.input_dir)?;
-    }
-
+    let _ = read_files(opt.input_dir, opt.recursive)?;
     if !opt.quiet { println!("Operation complete!"); }
-
     Ok(())
 }
 
@@ -54,24 +46,23 @@ fn init() -> Opt {
         .verbosity(opt.verbose)
         .init()
         .unwrap();
-    debug!("CLI options: {:?}", opt);
+    trace!("CLI options: {:?}", opt);
     return opt
 }
 
 /// Recursively walk given directory, operating on each image file.
-fn recursive_rw_loop(input_dir: PathBuf) -> Result<(), Error> {
-    debug!("Recursively walking directory tree starting at {}", input_dir.display());
-    for f in WalkDir::new(input_dir) {
-        debug!("{}", f?.path().display());
-    }
-    Ok(())
-}
-
-/// Walk given directory, operating on each image file.
-fn rw_loop(input_dir: PathBuf) -> Result<(), Error> {
-    debug!("Directory contents at {}", input_dir.display());
-    for f in fs::read_dir(".")? {
-        debug!("{}", f?.path().display());
-    }
+fn read_files(input_dir: PathBuf, recursive: bool) -> Result<(), Error> {
+    trace!("Walking directory tree starting at {}", input_dir.display());
+    let max_depth: usize = match recursive {
+        true => 255,
+        false => 1,
+    };
+    for img in WalkDir::new(input_dir)
+        .min_depth(1)    
+        .max_depth(max_depth)
+        .into_iter()
+        .filter_map(|i| i.ok()) {
+            trace!("{}", img.path().display());
+        }
     Ok(())
 }
