@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate log;
+extern crate stderrlog;
+
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -12,9 +16,9 @@ struct Opt {
     mv: bool,
     #[structopt(short, long, help = "Prepend 'portrait', 'landscape', or 'square' to image filenames.")]
     prefix: bool,
-    #[structopt(short, long, help = "Print source path, destination path, and orientation of each file.")]
-    verbose: bool,
-    #[structopt(short, long, help = "Do not print anything to stdout. Errors may still appear in stderr.")]
+    #[structopt(short, long, parse(from_occurrences), help = "Increasingly verbose output to stderr specified by adding more flags. i.e. -v -vv .. -vvvvv")]
+    verbose: usize,
+    #[structopt(short, long, help = "Do not print anything to stdout or stderr.")]
     quiet: bool,
     #[structopt(short, long, help = "Do not actually move any files. Implies verbose unless --quiet is provided.")]
     dry_run: bool,
@@ -23,4 +27,17 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     println!("{:?}", opt);
+
+    stderrlog::new()
+        .module(module_path!())
+        .quiet(opt.quiet)
+        .verbosity(opt.verbose)
+        .init()
+        .unwrap();
+
+    trace!("trace message");
+    debug!("debug message");
+    info!("info message");
+    warn!("warn message");
+    error!("error message");
 }
