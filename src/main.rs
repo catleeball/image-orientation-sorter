@@ -34,10 +34,4 @@ fn main() {
         .verbosity(opt.verbose)
         .init()
         .unwrap();
-
-    trace!("trace message");
-    debug!("debug message");
-    info!("info message");
-    warn!("warn message");
-    error!("error message");
 }
