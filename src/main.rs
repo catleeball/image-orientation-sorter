@@ -36,9 +36,8 @@ struct Opt {
 fn main() -> Result<(), Error>{
     let opt = init();
     let imgs = read_files(opt.input_dir, opt.recursive);
-    for img in imgs {
-        debug!("{:?}", img);
-    }
+    if imgs.len() < 1 { panic!("No image files found!") }
+    for img in imgs { debug!("{:?}", img); }
     if !opt.quiet { println!("Operation complete!"); }
     Ok(())
 }
@@ -56,7 +55,7 @@ fn init() -> Opt {
     return opt
 }
 
-/// Recursively walk given directory, operating on each image file.
+/// Recursively walk input directory, return a vector of paths to image files.
 fn read_files(input_dir: PathBuf, recursive: bool) -> Vec<PathBuf> {
     trace!("Walking directory tree starting at {}", input_dir.display());
     let max_depth: usize = match recursive {
