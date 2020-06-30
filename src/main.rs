@@ -2,8 +2,9 @@
 extern crate log;
 extern crate stderrlog;
 
+use aho_corasick::AhoCorasickBuilder;
 use failure::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
@@ -57,12 +58,24 @@ fn read_files(input_dir: PathBuf, recursive: bool) -> Result<(), Error> {
         true => 255,
         false => 1,
     };
-    for img in WalkDir::new(input_dir)
+    let mut images_paths: Vec<&Path> = Vec::new();
+    for f in WalkDir::new(input_dir)
         .min_depth(1)    
         .max_depth(max_depth)
         .into_iter()
-        .filter_map(|i| i.ok()) {
-            trace!("{}", img.path().display());
+        .filter_map(|i| i.ok()){
+            if has_image_extension(f.file_name().to_str().unwrap_or("")) {
+                images_paths.push(f.path().)
+            }
         }
     Ok(())
+}
+
+fn has_image_extension(path: &str) -> bool {
+    if path.is_empty() { return false }
+    const IMG_EXTS: [&str; 8] = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
+    let ac = AhoCorasickBuilder::new()
+        .ascii_case_insensitive(true)
+        .build(&IMG_EXTS);
+    return ac.is_match(path);
 }
