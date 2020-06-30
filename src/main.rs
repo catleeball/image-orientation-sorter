@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
+const IMG_EXTS: [&str; 8] = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "imgorisort", about = "Image Orientation Sorter")]
 struct Opt {
@@ -33,7 +35,10 @@ struct Opt {
 
 fn main() -> Result<(), Error>{
     let opt = init();
-    let _ = read_files(opt.input_dir, opt.recursive)?;
+    let imgs = read_files(opt.input_dir, opt.recursive);
+    for img in imgs {
+        debug!("{:?}", img);
+    }
     if !opt.quiet { println!("Operation complete!"); }
     Ok(())
 }
@@ -52,30 +57,33 @@ fn init() -> Opt {
 }
 
 /// Recursively walk given directory, operating on each image file.
-fn read_files(input_dir: PathBuf, recursive: bool) -> Result<(), Error> {
+fn read_files(input_dir: PathBuf, recursive: bool) -> Vec<PathBuf> {
     trace!("Walking directory tree starting at {}", input_dir.display());
     let max_depth: usize = match recursive {
         true => 255,
         false => 1,
     };
-    let mut images_paths: Vec<&Path> = Vec::new();
-    for f in WalkDir::new(input_dir)
-        .min_depth(1)    
+    WalkDir::new(input_dir)
+        .min_depth(1)
         .max_depth(max_depth)
         .into_iter()
-        .filter_map(|i| i.ok()){
-            if has_image_extension(f.file_name().to_str().unwrap_or("")) {
-                images_paths.push(f.path().)
-            }
-        }
-    Ok(())
+        .filter_entry(|i| has_image_extension(i.path()))
+        .filter_map(|i| i.ok())
+        .map(|i| i.into_path())
+        .collect()
 }
 
-fn has_image_extension(path: &str) -> bool {
-    if path.is_empty() { return false }
-    const IMG_EXTS: [&str; 8] = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
+/// Return true if the given path has an image file extension.
+fn has_image_extension(path: &Path) -> bool {
+    let ext = match path.extension() {
+        Some(ext) => match ext.to_str() {
+            Some(ext) => ext,
+            None => return false
+        },
+        None => return false
+    };
     let ac = AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
         .build(&IMG_EXTS);
-    return ac.is_match(path);
+    ac.is_match(ext)
 }
