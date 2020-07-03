@@ -3,15 +3,32 @@ extern crate log;
 extern crate stderrlog;
 
 use aho_corasick::AhoCorasickBuilder;
+use clap::arg_enum;
 use image::image_dimensions;
 use failure::Error;
-use rayon::prelude::*;
 use std::cmp::Ordering;
+use std::fs;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
 const IMG_EXTS: [&str; 8] = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
+
+arg_enum! {
+    #[derive(Debug)]
+    enum OverwriteBehavior {
+        Append,
+        Overwrite,
+        Skip,
+    }
+}
+
+#[derive(Debug)]
+struct Img {
+    src: PathBuf,
+    dst: PathBuf,
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "imgorisort", about = "Image Orientation Sorter")]
@@ -34,13 +51,15 @@ struct Opt {
     quiet: bool,
     #[structopt(short, long, help = "Do not actually move or copy any files. Implies -vvv unless --quiet is present.")]
     dry_run: bool,
+    #[structopt(possible_values = &OverwriteBehavior::variants(), case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory. Possible options: [append (adds a number to the end of the filename, keeping both files), overwrite (replace file in destination directory), skip (do not move file, leave in original location.)]")]
+    overwrite: OverwriteBehavior,
 }
 
-fn main() -> Result<(), Error>{
-    let opt = init();
-    let imgs = read_files(opt.input_dir, opt.output_dir, opt.recursive);
-    debug!("{:?}", imgs);
-    if !opt.quiet { println!("Operation complete!"); }
+fn main() -> Result<(), Error> {
+    let opts: Opt = init();
+    let src_dest_map: Vec<Img> = read_files(opts.input_dir, opts.output_dir, opts.recursive);
+    debug!("{:?}", src_dest_map);
+    if !opts.quiet { println!("Operation complete!"); }
     Ok(())
 }
 
@@ -57,8 +76,10 @@ fn init() -> Opt {
     return opt
 }
 
+fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: OverwriteBehavior) {}
+
 /// Recursively walk input directory, return a vector of image source paths to destination paths.
-fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
+fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<Img> {
     trace!("Walking directory tree starting at {}", input_path.display());
     let max_depth: usize = match recursive {
         true => 255,
@@ -70,29 +91,36 @@ fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec
         .into_iter()
         .filter_entry( |inpath| has_image_extension(inpath.path()) )
         .filter_map( |inpath| inpath.ok() )
-        .map( |inpath| get_src_dest_paths(inpath.path(), output_path.to_owned()) )
+        .filter_map( |inpath| get_src_dest_paths(inpath.path(), output_path.to_owned()).ok() )
+        .map( |(srcpath, dstpath)| Img { src: srcpath, dst: dstpath } )
         .collect()
 }
 
 /// Find destination path based on image orientation.
-fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> (PathBuf, PathBuf) {
-    let imgfile = inpath.file_name().unwrap();
+fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, PathBuf), std::io::ErrorKind> {
+    let imgfile = match inpath.file_name() {
+        Some(imgfile) => imgfile,
+        None => {
+            debug!("Recoverable error: Could not find filename for ource image path. {}", inpath.display());
+            return Err(std::io::ErrorKind::InvalidInput);
+        },
+    };
     let (x, y) = image_dimensions(inpath).ok().unwrap();
     match x.cmp(&y) {
         Ordering::Greater => {
             outpath.push("wide");
             outpath.push(imgfile);
-            (inpath.to_path_buf(), outpath)
+            Ok( (inpath.to_path_buf(), outpath) )
         },
         Ordering::Less => {
             outpath.push("tall");
             outpath.push(imgfile);
-            (inpath.to_path_buf(), outpath)
+            Ok( (inpath.to_path_buf(), outpath) )
         }
         Ordering::Equal => {
             outpath.push("square");
             outpath.push(imgfile);
-            (inpath.to_path_buf(), outpath)
+            Ok( (inpath.to_path_buf(), outpath) )
         }
     }
 }
@@ -111,3 +139,16 @@ fn has_image_extension(path: &Path) -> bool {
         .build(&IMG_EXTS);
     ac.is_match(ext)
 }
+
+// /// Removing; this is covered in the filter mapping in get_src_dest_paths()'s filter_map()s.
+// fn validate_input_paths(src: PathBuf, dst: PathBuf) -> Result<(), Error> {
+//     if !src.exists() {
+//         error!("Source path does not exist, or is not readable. {}", src.display());
+//         std::process::exit(1);
+//     }
+//     if !dst.exists() {
+//         debug!("Destination path not found, creating {}.", dst.display());
+//         fs::create_dir_all(dst)?
+//     }
+//     Ok(())
+// }
