@@ -57,7 +57,7 @@ fn init() -> Opt {
     return opt
 }
 
-/// Recursively walk input directory, return a vector of paths to image files.
+/// Recursively walk input directory, return a vector of image source paths to destination paths.
 fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
     trace!("Walking directory tree starting at {}", input_path.display());
     let max_depth: usize = match recursive {
@@ -74,7 +74,7 @@ fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec
         .collect()
 }
 
-/// Create destination path: (output path + orientation dir).
+/// Find destination path based on image orientation.
 fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> (PathBuf, PathBuf) {
     let imgfile = inpath.file_name().unwrap();
     let (x, y) = image_dimensions(inpath).ok().unwrap();
@@ -86,7 +86,7 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> (PathBuf, PathBuf)
         },
         Ordering::Less => {
             outpath.push("tall");
-            outpath.push(imgfile.to_os_string());
+            outpath.push(imgfile);
             (inpath.to_path_buf(), outpath)
         }
         Ordering::Equal => {
