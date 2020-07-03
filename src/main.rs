@@ -3,7 +3,10 @@ extern crate log;
 extern crate stderrlog;
 
 use aho_corasick::AhoCorasickBuilder;
+use image::image_dimensions;
 use failure::Error;
+use rayon::prelude::*;
+use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
@@ -35,9 +38,8 @@ struct Opt {
 
 fn main() -> Result<(), Error>{
     let opt = init();
-    let imgs = read_files(opt.input_dir, opt.recursive);
-    if imgs.len() < 1 { panic!("No image files found!") }
-    for img in imgs { debug!("{:?}", img); }
+    let imgs = read_files(opt.input_dir, opt.output_dir, opt.recursive);
+    debug!("{:?}", imgs);
     if !opt.quiet { println!("Operation complete!"); }
     Ok(())
 }
@@ -51,25 +53,48 @@ fn init() -> Opt {
         .verbosity(opt.verbose)
         .init()
         .unwrap();
-    trace!("CLI options: {:?}", opt);
+    trace!("Options initialized: {:?}", opt);
     return opt
 }
 
 /// Recursively walk input directory, return a vector of paths to image files.
-fn read_files(input_dir: PathBuf, recursive: bool) -> Vec<PathBuf> {
-    trace!("Walking directory tree starting at {}", input_dir.display());
+fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
+    trace!("Walking directory tree starting at {}", input_path.display());
     let max_depth: usize = match recursive {
         true => 255,
         false => 1,
     };
-    WalkDir::new(input_dir)
+    WalkDir::new(input_path)
         .min_depth(1)
         .max_depth(max_depth)
         .into_iter()
-        .filter_entry(|i| has_image_extension(i.path()))
-        .filter_map(|i| i.ok())
-        .map(|i| i.into_path())
+        .filter_entry( |inpath| has_image_extension(inpath.path()) )
+        .filter_map( |inpath| inpath.ok() )
+        .map( |inpath| get_src_dest_paths(inpath.path(), output_path.to_owned()) )
         .collect()
+}
+
+/// Create destination path: (output path + orientation dir).
+fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> (PathBuf, PathBuf) {
+    let imgfile = inpath.file_name().unwrap();
+    let (x, y) = image_dimensions(inpath).ok().unwrap();
+    match x.cmp(&y) {
+        Ordering::Greater => {
+            outpath.push("wide");
+            outpath.push(imgfile);
+            (inpath.to_path_buf(), outpath)
+        },
+        Ordering::Less => {
+            outpath.push("tall");
+            outpath.push(imgfile.to_os_string());
+            (inpath.to_path_buf(), outpath)
+        }
+        Ordering::Equal => {
+            outpath.push("square");
+            outpath.push(imgfile);
+            (inpath.to_path_buf(), outpath)
+        }
+    }
 }
 
 /// Return true if the given path has an image file extension.
