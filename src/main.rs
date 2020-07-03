@@ -76,7 +76,11 @@ fn init() -> Opt {
     return opt
 }
 
-fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: OverwriteBehavior) {}
+// fn move_files(mut src_dest_map: Vec<Img>, overwrite: OverwriteBehavior) -> Result<(), Error> {
+//     src_dest_map.iter()
+//                 .map(|img| fs::rename());
+//     Ok(())
+// }
 
 /// Recursively walk input directory, return a vector of image source paths to destination paths.
 fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<Img> {
@@ -101,11 +105,17 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
     let imgfile = match inpath.file_name() {
         Some(imgfile) => imgfile,
         None => {
-            debug!("Recoverable error: Could not find filename for ource image path. {}", inpath.display());
+            debug!("Recoverable error: Could not find filename for source image path. {}", inpath.display());
             return Err(std::io::ErrorKind::InvalidInput);
         },
     };
-    let (x, y) = image_dimensions(inpath).ok().unwrap();
+    let (x, y) = match image_dimensions(inpath) {
+        Ok(xy) => xy,
+        Err(e) => {
+            warn!("Could not parse dimensions of image {}. Error {}", inpath.display(), e);
+            return Err(std::io::ErrorKind::InvalidData);
+        }
+    };
     match x.cmp(&y) {
         Ordering::Greater => {
             outpath.push("wide");
