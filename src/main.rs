@@ -43,13 +43,15 @@ struct Opt {
     mv: bool,
     #[structopt(short, long, help = "Prepend 'portrait', 'landscape', or 'square' to output image filenames.")]
     prefix: bool,
+    #[structopt(long, help = "Rename files without moving them, prepending 'tall', 'wide', or 'square' to the filename. If this option is present, ignore -c, -p, and output_dir.")]
+    rename: bool,
     #[structopt(long, help = "Guess if a file is an image based on file header rather than file extension. Performs more slowly than reading extensions.")]
     read_headers: bool,
     #[structopt(short, long, parse(from_occurrences), help = "Increase output verbosity by adding more flags: [-v|-vv|-vvv]")]
     verbose: usize,
     #[structopt(short, long, help = "Do not print anything to stdout or stderr.")]
     quiet: bool,
-    #[structopt(short, long, help = "Do not actually move or copy any files. Implies -vvv unless --quiet is present.")]
+    #[structopt(short, long, help = "Do not actually move or copy any files. Print files to stdout unless --quiet is present.")]
     dry_run: bool,
     #[structopt(possible_values = &OverwriteBehavior::variants(), case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory. Possible options: [append (adds a number to the end of the filename, keeping both files), overwrite (replace file in destination directory), skip (do not move file, leave in original location.)]")]
     overwrite: OverwriteBehavior,
