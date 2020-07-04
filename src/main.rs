@@ -9,6 +9,7 @@ use failure::Error;
 use std::cmp::Ordering;
 use std::fs;
 use std::fs::File;
+use std::path;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
@@ -22,12 +23,6 @@ arg_enum! {
         Overwrite,
         Skip,
     }
-}
-
-#[derive(Debug)]
-struct Img {
-    src: PathBuf,
-    dst: PathBuf,
 }
 
 #[derive(Debug, StructOpt)]
@@ -59,7 +54,7 @@ struct Opt {
 
 fn main() -> Result<(), Error> {
     let opts: Opt = init();
-    let src_dest_map: Vec<Img> = read_files(opts.input_dir, opts.output_dir, opts.recursive);
+    let src_dest_map = read_files(opts.input_dir, opts.output_dir, opts.recursive);
     debug!("{:?}", src_dest_map);
     if !opts.quiet { println!("Operation complete!"); }
     Ok(())
@@ -78,14 +73,22 @@ fn init() -> Opt {
     return opt
 }
 
-// fn move_files(mut src_dest_map: Vec<Img>, overwrite: OverwriteBehavior) -> Result<(), Error> {
-//     src_dest_map.iter()
-//                 .map(|img| fs::rename());
-//     Ok(())
-// }
+fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: OverwriteBehavior) -> Result<(), Error> {
+    match overwrite {
+        Overwrite => move_files_overwrite(src_dest_map),
+        Append => (),
+        Skip => (),
+    }
+    Ok(())
+}
+
+fn move_files_overwrite(src_dest_map: Vec<(PathBuf, PathBuf)>) {
+    src_dest_map.iter()
+                .filter_map( |sd| fs::rename(sd.0, sd.1).ok() );
+}
 
 /// Recursively walk input directory, return a vector of image source paths to destination paths.
-fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<Img> {
+fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
     trace!("Walking directory tree starting at {}", input_path.display());
     let max_depth: usize = match recursive {
         true => 255,
@@ -98,7 +101,6 @@ fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec
         .filter_entry( |inpath| has_image_extension(inpath.path()) )
         .filter_map( |inpath| inpath.ok() )
         .filter_map( |inpath| get_src_dest_paths(inpath.path(), output_path.to_owned()).ok() )
-        .map( |(srcpath, dstpath)| Img { src: srcpath, dst: dstpath } )
         .collect()
 }
 
@@ -107,7 +109,7 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
     let imgfile = match inpath.file_name() {
         Some(imgfile) => imgfile,
         None => {
-            debug!("Recoverable error: Could not find filename for source image path. {}", inpath.display());
+            debug!("Could not find filename for source image path. {}", inpath.display());
             return Err(std::io::ErrorKind::InvalidInput);
         },
     };
