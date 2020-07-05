@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
-const IMG_EXTS: [&str; 9] = ["gif", "jpg", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
+static IMG_EXTS: [&str; 8] = ["jpg", "jpeg", "png", "gif", "webp", "ico", "tiff", "bmp"];
+static ORI: [&str; 3] = ["portrait", "landscape", "square"];
 
 arg_enum! {
     #[derive(Debug)]
@@ -29,7 +30,7 @@ arg_enum! {
 struct Opt {
     #[structopt(parse(from_os_str), help = "Directory containing image files to sort by orientation.")]
     input_dir: PathBuf,
-    #[structopt(parse(from_os_str), help = "Directory to output sorted images into.")]
+    #[structopt(parse(from_os_str), default_value = ".", help = "Directory to output sorted images into.")]
     output_dir: PathBuf,
     #[structopt(short, long, help = "Recurse into subdirectories.")]
     recursive: bool,
@@ -79,9 +80,9 @@ fn exit_no_impl() {
 
 fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
     let outstr = opts.output_dir.to_str().unwrap_or("");
-    let tall = format!("{}/portrait", outstr);
-    let wide = format!("{}/landscape", outstr);
-    let square = format!("{}/square", outstr);
+    let tall = format!("{}/{}", outstr, ORI[0]);
+    let wide = format!("{}/{}", outstr, ORI[1]);
+    let square = format!("{}/{}", outstr, ORI[2]);
     create_dir_all(tall)?;
     create_dir_all(wide)?;
     create_dir_all(square)?;
@@ -101,6 +102,7 @@ fn init() -> Opt {
     return opt
 }
 
+/// Move files based on the supplied OverwriteBehavior.
 fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: OverwriteBehavior) -> Result<(), Error> {
     match overwrite {
         OverwriteBehavior::Overwrite => move_files_quiet_overwrite(src_dest_map),
@@ -131,7 +133,7 @@ fn move_files_quiet_overwrite(mut src_dest_map: Vec<(PathBuf, PathBuf)>) -> () {
 
 /// Recursively walk input directory, return a vector of image source paths to destination paths.
 fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
-    trace!("Walking directory tree starting at {}", input_path.display());
+    trace!("Walking dir: {}", input_path.display());
     let max_depth: usize = match recursive {
         true => 255,
         false => 1,
@@ -151,30 +153,30 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
     let imgfile = match inpath.file_name() {
         Some(imgfile) => imgfile,
         None => {
-            debug!("Could not find filename for source image path. {}", inpath.display());
+            debug!("Not found. {}", inpath.display());
             return Err(std::io::ErrorKind::InvalidInput);
         },
     };
     let (x, y) = match image_dimensions(inpath) {
         Ok(xy) => xy,
         Err(e) => {
-            warn!("Could not parse dimensions of image {}. Error {}", inpath.display(), e);
+            warn!("Dimensions not found in {}. Error {}", inpath.display(), e);
             return Err(std::io::ErrorKind::InvalidData);
         }
     };
     match x.cmp(&y) {
         Ordering::Greater => {
-            outpath.push("portrait");
+            outpath.push(ORI[0]);
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         },
         Ordering::Less => {
-            outpath.push("landscape");
+            outpath.push(ORI[1]);
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         }
         Ordering::Equal => {
-            outpath.push("square");
+            outpath.push(ORI[2]);
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         }
