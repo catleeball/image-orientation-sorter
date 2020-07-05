@@ -15,15 +15,7 @@ use walkdir::WalkDir;
 
 static IMG_EXTS: [&str; 8] = ["jpg", "jpeg", "png", "gif", "webp", "ico", "tiff", "bmp"];
 static ORI: [&str; 3] = ["portrait", "landscape", "square"];
-
-arg_enum! {
-    #[derive(Debug)]
-    enum OverwriteBehavior {
-        Rename,
-        Overwrite,
-        Skip,
-    }
-}
+static OVERWRITE_BEHAVIORS: &[&str; 3] = &["rename", "overwrite", "skip"];
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "imgorisort", about = "Image Orientation Sorter")]
@@ -48,14 +40,8 @@ struct Opt {
     quiet: bool,
     #[structopt(short, long, help = "Do not actually move or copy any files. Print files to stdout unless --quiet is present.")]
     dry_run: bool,
-    #[structopt(long, possible_values = &OverwriteBehavior::variants(), default_value = "rename", case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory. Possible options: [rename (adds a number to the end of the filename, keeping both files), overwrite (replace file in destination directory), skip (do not move file, leave in original location).]")]
-    overwrite: OverwriteBehavior,
-}
-
-struct Img {
-    err: Option<Error>,
-    src: PathBuf,
-    dst: PathBuf,
+    #[structopt(long, default_value = OVERWRITE_BEHAVIORS[0], possible_values = OVERWRITE_BEHAVIORS, case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory. Possible options: [rename (adds a number to the end of the filename, keeping both files), overwrite (replace file in destination directory), skip (do not move file, leave in original location).]")]
+    overwrite: String,
 }
 
 fn main() -> Result<(), Error> {
@@ -103,11 +89,11 @@ fn init() -> Opt {
 }
 
 /// Move files based on the supplied OverwriteBehavior.
-fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: OverwriteBehavior) -> Result<(), Error> {
+fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: &str) -> Result<(), Error> {
     match overwrite {
-        OverwriteBehavior::Overwrite => move_files_quiet_overwrite(src_dest_map),
-        OverwriteBehavior::Rename => {exit_no_impl();},
-        OverwriteBehavior::Skip => {exit_no_impl();},
+        "overwrite" => move_files_quiet_overwrite(src_dest_map),
+        "rename" => {exit_no_impl();},
+        "skip" => {exit_no_impl();},
     }
     Ok(())
 }
