@@ -6,6 +6,7 @@ use aho_corasick::AhoCorasickBuilder;
 use clap::arg_enum;
 use image::image_dimensions;
 use failure::Error;
+use smartstring::alias::String;
 use std::cmp::Ordering;
 use std::fs::{create_dir_all, rename};
 use std::path::{Path, PathBuf};
