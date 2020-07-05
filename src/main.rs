@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
-const IMG_EXTS: [&str; 8] = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
+const IMG_EXTS: [&str; 9] = ["gif", "jpg", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"];
 
 arg_enum! {
     #[derive(Debug)]
@@ -58,10 +58,15 @@ struct Img {
 
 fn main() -> Result<(), Error> {
     let opts: Opt = init();
-    if opts.dry_run || opts.copy || opts.read_headers || opts.rename { exit_no_impl(); }
-    if !opts.dry_run && !opts.copy && !opts.rename { make_output_orientation_dirs(&opts)?; }
+    if opts.dry_run || opts.copy || opts.read_headers || opts.rename {
+        exit_no_impl();
+    }
+    if !opts.dry_run && !opts.copy && !opts.rename {
+        make_output_orientation_dirs(&opts)?;
+    }
     let src_dest_map = read_files(opts.input_dir, opts.output_dir, opts.recursive);
     debug!("{:?}", src_dest_map);
+    move_files(src_dest_map, opts.overwrite)?;
     if !opts.quiet { println!("Operation complete!"); }
     Ok(())
 }
@@ -158,17 +163,17 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
     };
     match x.cmp(&y) {
         Ordering::Greater => {
-            outpath.push("portrait_");
+            outpath.push("portrait");
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         },
         Ordering::Less => {
-            outpath.push("landscape_");
+            outpath.push("landscape");
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         }
         Ordering::Equal => {
-            outpath.push("square_");
+            outpath.push("square");
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         }
