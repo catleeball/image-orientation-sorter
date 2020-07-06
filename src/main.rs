@@ -3,7 +3,6 @@ extern crate log;
 extern crate stderrlog;
 
 use aho_corasick::AhoCorasickBuilder;
-use clap::arg_enum;
 use image::image_dimensions;
 use failure::Error;
 use smartstring::alias::String;
@@ -54,7 +53,7 @@ fn main() -> Result<(), Error> {
     }
     let src_dest_map = read_files(opts.input_dir, opts.output_dir, opts.recursive);
     debug!("{:?}", src_dest_map);
-    move_files(src_dest_map, opts.overwrite)?;
+    move_files(src_dest_map, &opts.overwrite)?;
     if !opts.quiet { println!("Operation complete!"); }
     Ok(())
 }
@@ -91,9 +90,10 @@ fn init() -> Opt {
 /// Move files based on the supplied OverwriteBehavior.
 fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: &str) -> Result<(), Error> {
     match overwrite {
-        "overwrite" => move_files_quiet_overwrite(src_dest_map),
-        "rename" => {exit_no_impl();},
-        "skip" => {exit_no_impl();},
+        _ if overwrite == OVERWRITE_BEHAVIORS[1] => move_files_quiet_overwrite(src_dest_map),
+        _ if overwrite == OVERWRITE_BEHAVIORS[0] => {exit_no_impl();},
+        _ if overwrite == OVERWRITE_BEHAVIORS[2] => {exit_no_impl();},
+        _ => panic!("Failed to validate overwrite argument.")
     }
     Ok(())
 }
