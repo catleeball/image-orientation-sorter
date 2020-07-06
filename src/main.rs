@@ -14,7 +14,6 @@ use walkdir::WalkDir;
 
 static IMG_EXTS: [&str; 8] = ["jpg", "jpeg", "png", "gif", "webp", "ico", "tiff", "bmp"];
 static ORI: [&str; 3] = ["portrait", "landscape", "square"];
-static OVERWRITE_BEHAVIORS: &[&str; 3] = &["rename", "overwrite", "skip"];
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "imgorisort", about = "Image Orientation Sorter")]
@@ -25,50 +24,18 @@ struct Opt {
     output_dir: PathBuf,
     #[structopt(short, long, help = "Recurse into subdirectories.")]
     recursive: bool,
-    #[structopt(short = "c", long = "copy", help = "Copy (rather than move) images to output directory, sorted by orientation. Subdirectories [portrait, landscape, square] may be created in this directory.")]
-    copy: bool,
-    #[structopt(short, long, help = "Prepend 'portrait_', 'landscape_', or 'square_' to output image filenames.")]
-    prefix: bool,
-    #[structopt(long, help = "Rename files without moving them, prepending 'portrait_', 'landscape_', or 'square_' to the filename. If this option is present, ignore -c, -p, and output_dir.")]
-    rename: bool,
-    #[structopt(long, help = "Guess if a file is an image based on file header rather than file extension. Performs more slowly than reading extensions.")]
-    read_headers: bool,
     #[structopt(short, long, parse(from_occurrences), help = "Increase output verbosity by adding more flags: [-v|-vv|-vvv]")]
     verbose: usize,
     #[structopt(short, long, help = "Do not print anything to stdout or stderr.")]
     quiet: bool,
-    #[structopt(short, long, help = "Do not actually move or copy any files. Print files to stdout unless --quiet is present.")]
-    dry_run: bool,
-    #[structopt(long, default_value = OVERWRITE_BEHAVIORS[0], possible_values = OVERWRITE_BEHAVIORS, case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory.")]
-    overwrite: String,
 }
 
 fn main() -> Result<(), Error> {
     let opts: Opt = init();
-    if opts.dry_run || opts.copy || opts.read_headers || opts.rename {
-        exit_no_impl();
-    }
-    if !opts.dry_run && !opts.copy && !opts.rename {
-        make_output_orientation_dirs(&opts)?;
-    }
+    make_output_orientation_dirs(&opts)?;
     let src_dest_map = read_files(opts.input_dir, opts.output_dir, opts.recursive);
-    debug!("{:?}", src_dest_map);
-    move_files(src_dest_map, &opts.overwrite)?;
-    if !opts.quiet { println!("Operation complete!"); }
-    Ok(())
-}
-
-fn exit_no_impl() {
-    error!("Not yet implemented.");
-    std::process::exit(1);
-}
-
-/// Create directories to place each orientation of image into.
-fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
-    let outstr = opts.output_dir.to_str().unwrap_or("");
-    create_dir_all(format!("{}/{}", outstr, ORI[0]))?;
-    create_dir_all(format!("{}/{}", outstr, ORI[1]))?;
-    create_dir_all(format!("{}/{}", outstr, ORI[2]))?;
+    debug!("File sources and destinations: {:#?}", src_dest_map);
+    move_files(src_dest_map);
     Ok(())
 }
 
@@ -85,39 +52,24 @@ fn init() -> Opt {
     return opt
 }
 
-/// Move files based on the supplied OverwriteBehavior.
-fn move_files(src_dest_map: Vec<(PathBuf, PathBuf)>, overwrite: &str) -> Result<(), Error> {
-    match overwrite {
-        _ if overwrite == OVERWRITE_BEHAVIORS[1] => move_files_quiet_overwrite(src_dest_map),
-        _ if overwrite == OVERWRITE_BEHAVIORS[0] => {exit_no_impl();},
-        _ if overwrite == OVERWRITE_BEHAVIORS[2] => {exit_no_impl();},
-        _ => panic!("Failed to validate overwrite argument.")
-    }
+/// Create directories to place each orientation of image into.
+fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
+    let outstr = opts.output_dir.to_str().unwrap_or("");
+    create_dir_all(format!("{}/{}", outstr, ORI[0]))?;
+    create_dir_all(format!("{}/{}", outstr, ORI[1]))?;
+    create_dir_all(format!("{}/{}", outstr, ORI[2]))?;
     Ok(())
 }
 
 /// Move files to new destination, suppress all errors, overwrite dest files, return no metadata.
-fn move_files_quiet_overwrite(mut src_dest_map: Vec<(PathBuf, PathBuf)>) -> () {
+fn move_files(mut src_dest_map: Vec<(PathBuf, PathBuf)>) -> () {
     src_dest_map.drain(..)
                 .filter_map( |sd| rename(Path::new(&sd.0), Path::new(&sd.1)).ok() )
                 .collect()
 }
 
-// fn move_files_overwrite(src_dest_map: Vec<(PathBuf, PathBuf)>) {
-//     let mv_errors: Vec<(std::io::Error, &PathBuf, &PathBuf)> = Vec::with_capacity(src_dest_map.len());
-//     let (pass, fail): (Vec<_>, Vec<_>) = src_dest_map
-//         .iter()
-//         .map( |sd| rename(Path::new(&sd.0), Path::new(&sd.1)) )
-//         .partition(Result::is_ok);
-//     let errors: Vec<_> = fail
-//         .iter()
-//         .map(|e| e.as_ref().unwrap_err())
-//         .collect();
-// }
-
 /// Recursively walk input directory, return a vector of image source paths to destination paths.
 fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
-    trace!("Walking dir: {}", input_path.display());
     let max_depth: usize = match recursive {
         true => 255,
         false => 1,

@@ -5,14 +5,14 @@
 
 [package]
 name = "imgorisort"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["🎷🐛 Lee Ball <lee.cat.ball@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"
 readme = "README.md"
 homepage = "https://github.com/catleeball/image-orientation-sorter"
 repository = "https://github.com/catleeball/image-orientation-sorter"
-description = "Sort images in a directory by orientation: landscape, portrait, or square."
+description = "Quickly sort images into directories by orientation: landscape, portrait, and square."
 
 [dependencies]
 aho-corasick = "^0.7.13"
@@ -24,3 +24,11 @@ structopt = "^0.3.12"
 walkdir = "^2.3.1"
 log = "^0.4.8"
 stderrlog = "^0.4.3"
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+codegen-units = 1
+inline-threshold = 512
