@@ -39,7 +39,7 @@ struct Opt {
     quiet: bool,
     #[structopt(short, long, help = "Do not actually move or copy any files. Print files to stdout unless --quiet is present.")]
     dry_run: bool,
-    #[structopt(long, default_value = OVERWRITE_BEHAVIORS[0], possible_values = OVERWRITE_BEHAVIORS, case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory. Possible options: [rename (adds a number to the end of the filename, keeping both files), overwrite (replace file in destination directory), skip (do not move file, leave in original location).]")]
+    #[structopt(long, default_value = OVERWRITE_BEHAVIORS[0], possible_values = OVERWRITE_BEHAVIORS, case_insensitive = true, help = "Specify behavior when a file with the same name exists in the output directory.")]
     overwrite: String,
 }
 
