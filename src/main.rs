@@ -63,14 +63,12 @@ fn exit_no_impl() {
     std::process::exit(1);
 }
 
+/// Create directories to place each orientation of image into.
 fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
     let outstr = opts.output_dir.to_str().unwrap_or("");
-    let tall = format!("{}/{}", outstr, ORI[0]);
-    let wide = format!("{}/{}", outstr, ORI[1]);
-    let square = format!("{}/{}", outstr, ORI[2]);
-    create_dir_all(tall)?;
-    create_dir_all(wide)?;
-    create_dir_all(square)?;
+    create_dir_all(format!("{}/{}", outstr, ORI[0]))?;
+    create_dir_all(format!("{}/{}", outstr, ORI[1]))?;
+    create_dir_all(format!("{}/{}", outstr, ORI[2]))?;
     Ok(())
 }
 
