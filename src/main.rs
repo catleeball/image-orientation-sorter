@@ -183,16 +183,3 @@ fn has_image_extension(path: &Path) -> bool {
         .build(&IMG_EXTS);
     ac.is_match(ext)
 }
-
-// /// Removing; this is covered in the filter mapping in get_src_dest_paths()'s filter_map()s.
-// fn validate_input_paths(src: PathBuf, dst: PathBuf) -> Result<(), Error> {
-//     if !src.exists() {
-//         error!("Source path does not exist, or is not readable. {}", src.display());
-//         std::process::exit(1);
-//     }
-//     if !dst.exists() {
-//         debug!("Destination path not found, creating {}.", dst.display());
-//         fs::create_dir_all(dst)?
-//     }
-//     Ok(())
-// }
