@@ -2,18 +2,28 @@
 extern crate log;
 extern crate stderrlog;
 
+use arraystring::{ArrayString, typenum::U4};
 use aho_corasick::AhoCorasickBuilder;
 use image::image_dimensions;
 use failure::Error;
-use smartstring::alias::String;
 use std::cmp::Ordering;
 use std::fs::{create_dir_all, rename};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
-static IMG_EXTS: [&str; 8] = ["jpg", "jpeg", "png", "gif", "webp", "ico", "tiff", "bmp"];
-static ORI: [&str; 3] = ["portrait", "landscape", "square"];
+type FourChar = ArrayString<U4>;
+
+enum Orientation { Tall, Wide, Square }
+impl Orientation {
+    fn to_arrstr(&self) -> FourChar {
+        match self {
+            Orientation::Tall => unsafe {FourChar::from_str_unchecked("tall")},
+            Orientation::Wide => unsafe {FourChar::from_str_unchecked("wide")},
+            Orientation::Square => unsafe {FourChar::from_str_unchecked("sqr")},
+        }
+    }
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "imgorisort", about = "Image Orientation Sorter")]
@@ -55,9 +65,9 @@ fn init() -> Opt {
 /// Create directories to place each orientation of image into.
 fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
     let outstr = opts.output_dir.to_str().unwrap_or("");
-    create_dir_all(format!("{}/{}", outstr, ORI[0]))?;
-    create_dir_all(format!("{}/{}", outstr, ORI[1]))?;
-    create_dir_all(format!("{}/{}", outstr, ORI[2]))?;
+    create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
+    create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
+    create_dir_all(format!("{}/{}", outstr, Orientation::Square.to_arrstr()))?;
     Ok(())
 }
 
@@ -102,17 +112,17 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
     };
     match x.cmp(&y) {
         Ordering::Greater => {
-            outpath.push(ORI[0]);
+            outpath.push(Orientation::Wide.to_arrstr().as_str());
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         },
         Ordering::Less => {
-            outpath.push(ORI[1]);
+            outpath.push(Orientation::Tall.to_arrstr().as_str());
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         }
         Ordering::Equal => {
-            outpath.push(ORI[2]);
+            outpath.push(Orientation::Square.to_arrstr().as_str());
             outpath.push(imgfile);
             Ok( (inpath.to_path_buf(), outpath) )
         }
@@ -128,8 +138,16 @@ fn has_image_extension(path: &Path) -> bool {
         },
         None => return false
     };
-    let ac = AhoCorasickBuilder::new()
-        .ascii_case_insensitive(true)
-        .build(&IMG_EXTS);
+    let ac = unsafe {
+        AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .build(&[FourChar::from_str_unchecked("jpg"),
+                    FourChar::from_str_unchecked("jpeg"),
+                    FourChar::from_str_unchecked("png"),
+                    FourChar::from_str_unchecked("gif"),
+                    FourChar::from_str_unchecked("webp"),
+                    FourChar::from_str_unchecked("ico"),
+                    FourChar::from_str_unchecked("tiff"),
+                    FourChar::from_str_unchecked("bmp"),])};
     ac.is_match(ext)
 }

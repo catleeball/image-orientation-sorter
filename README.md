@@ -1,5 +1,5 @@
 # image-orientation-sorter
-Quickly sort images into directories by orientation: landscape, portrait, and square.
+Quickly sort images into directories by orientation: tall, wide, and square.
 
 Supported filetypes:
 - jpg
@@ -18,17 +18,17 @@ $ tree /path/to/images
 /path/to/images
 ├── foo
 │   └── square.jpg
-├── tall.jpg
-└── wide.jpg
+├── portrait.jpg
+└── landscape.jpg
 $ imgorisort -r /path/to/images
 $ tree /path/to/images
 /path/to/images
 ├── foo
-├── landscape
-│   └── wide.jpg
-├── portrait
-│   └── tall.jpg
-└── square
+├── wide
+│   └── landscape.jpg
+├── tall
+│   └── portrait.jpg
+└── sqr
     └── square.jpg
 ```
 

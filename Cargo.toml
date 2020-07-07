@@ -16,10 +16,10 @@ description = "Quickly sort images into directories by orientation: landscape, p
 
 [dependencies]
 aho-corasick = "^0.7.13"
+arraystring = "0.3.0"
 clap = "^2.33.1"
 image = { version = "^0.23.6", features = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"] }
 failure = "^0.1.8"
-smartstring = "^0.2.2"
 structopt = "^0.3.12"
 walkdir = "^2.3.1"
 log = "^0.4.8"
