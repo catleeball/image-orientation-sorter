@@ -6,6 +6,7 @@ use arraystring::{ArrayString, typenum::U4};
 use aho_corasick::AhoCorasickBuilder;
 use image::image_dimensions;
 use failure::Error;
+use smartstring::alias::String;
 use std::cmp::Ordering;
 use std::fs::{create_dir_all, rename};
 use std::path::{Path, PathBuf};
@@ -34,6 +35,8 @@ struct Opt {
     output_dir: PathBuf,
     #[structopt(short, long, help = "Recurse into subdirectories.")]
     recursive: bool,
+    #[structopt(long, help = "Prepend image orientation to filename instead of moving file.")]
+    rename: bool,
     #[structopt(short, long, parse(from_occurrences), help = "Increase output verbosity by adding more flags: [-v|-vv|-vvv]")]
     verbose: usize,
     #[structopt(short, long, help = "Do not print anything to stdout or stderr.")]
@@ -43,7 +46,7 @@ struct Opt {
 fn main() -> Result<(), Error> {
     let opts: Opt = init();
     make_output_orientation_dirs(&opts)?;
-    let src_dest_map = read_files(opts.input_dir, opts.output_dir, opts.recursive);
+    let src_dest_map = read_files(&opts);
     debug!("File sources and destinations: {:#?}", src_dest_map);
     move_files(src_dest_map);
     Ok(())
@@ -64,10 +67,12 @@ fn init() -> Opt {
 
 /// Create directories to place each orientation of image into.
 fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
-    let outstr = opts.output_dir.to_str().unwrap_or("");
-    create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
-    create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
-    create_dir_all(format!("{}/{}", outstr, Orientation::Square.to_arrstr()))?;
+    if !opts.rename {
+        let outstr = opts.output_dir.to_str().unwrap_or("");
+        create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
+        create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
+        create_dir_all(format!("{}/{}", outstr, Orientation::Square.to_arrstr()))?;
+    }
     Ok(())
 }
 
@@ -79,18 +84,18 @@ fn move_files(mut src_dest_map: Vec<(PathBuf, PathBuf)>) -> () {
 }
 
 /// Recursively walk input directory, return a vector of image source paths to destination paths.
-fn read_files(input_path: PathBuf, output_path: PathBuf, recursive: bool) -> Vec<(PathBuf, PathBuf)> {
-    let max_depth: usize = match recursive {
+fn read_files(opts: &Opt) -> Vec<(PathBuf, PathBuf)> {
+    let max_depth: usize = match opts.recursive {
         true => 255,
         false => 1,
     };
-    WalkDir::new(input_path)
+    WalkDir::new(&opts.input_dir)
         .min_depth(1)
         .max_depth(max_depth)
         .into_iter()
         .filter_entry( |inpath| has_image_extension(inpath.path()) )
         .filter_map( |inpath| inpath.ok() )
-        .filter_map( |inpath| get_src_dest_paths(inpath.path(), output_path.to_owned()).ok() )
+        .filter_map( |inpath| get_src_dest_paths(inpath.path(), opts.output_dir.to_owned()).ok() )
         .collect()
 }
 
