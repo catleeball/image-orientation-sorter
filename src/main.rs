@@ -136,23 +136,26 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
 
 /// Return true if the given path has an image file extension.
 fn has_image_extension(path: &Path) -> bool {
-    let ext = match path.extension() {
-        Some(ext) => match ext.to_str() {
-            Some(ext) => ext,
+    let extension = match path.extension() {
+        Some(extension) => match extension.to_str() {
+            Some(extension) => extension,
             None => return false
         },
         None => return false
     };
     let ac = unsafe {
         AhoCorasickBuilder::new()
+            .dfa(true)
+            .byte_classes(false)
             .ascii_case_insensitive(true)
-            .build(&[FourChar::from_str_unchecked("jpg"),
-                    FourChar::from_str_unchecked("jpeg"),
-                    FourChar::from_str_unchecked("png"),
-                    FourChar::from_str_unchecked("gif"),
-                    FourChar::from_str_unchecked("webp"),
-                    FourChar::from_str_unchecked("ico"),
-                    FourChar::from_str_unchecked("tiff"),
-                    FourChar::from_str_unchecked("bmp"),])};
-    ac.is_match(ext)
+            .build(&[
+                FourChar::from_str_unchecked("jpg"),
+                FourChar::from_str_unchecked("jpeg"),
+                FourChar::from_str_unchecked("png"),
+                FourChar::from_str_unchecked("gif"),
+                FourChar::from_str_unchecked("webp"),
+                FourChar::from_str_unchecked("ico"),
+                FourChar::from_str_unchecked("tiff"),
+                FourChar::from_str_unchecked("bmp"),]) };
+    ac.is_match(extension)
 }
