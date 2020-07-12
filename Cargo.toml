@@ -12,7 +12,7 @@ license = "Apache-2.0"
 readme = "README.md"
 homepage = "https://github.com/catleeball/image-orientation-sorter"
 repository = "https://github.com/catleeball/image-orientation-sorter"
-description = "Quickly sort images into directories by orientation: landscape, portrait, and square."
+description = "Quickly sort images into directories by orientation: tall, wide, and square."
 
 [dependencies]
 aho-corasick = "^0.7.13"

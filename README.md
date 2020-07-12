@@ -13,6 +13,11 @@ Supported filetypes:
 This small tool's first release includes only the basic functionality: move images to direcotires named after their orientations.
 
 # Example
+
+### Move images
+
+Move images to 'tall', 'wide', and 'square' directories.
+
 ```
 $ tree /path/to/images
 /path/to/images
@@ -20,7 +25,10 @@ $ tree /path/to/images
 │   └── square.jpg
 ├── portrait.jpg
 └── landscape.jpg
-$ imgorisort -r /path/to/images
+
+$ imgorisort -r --rename /path/to/images
+Processed 3 files successfully.
+
 $ tree /path/to/images
 /path/to/images
 ├── foo
@@ -32,9 +40,37 @@ $ tree /path/to/images
     └── square.jpg
 ```
 
-# Usage
+### Rename images
+
+Rename images, adding 'tall', 'square', or 'wide' to the beginning of the filename.
+
+Using --rename will not move images to new directories, in contrast to the above example.
+
 ```
-imgorisort 0.1.2
+$ tree /path/to/images
+/path/to/images
+├── foo
+│   └── square.jpg
+├── portrait.jpg
+└── landscape.jpg
+
+$ imgorisort -r /path/to/images
+Processed 3 files successfully.
+
+$ tree /path/to/images
+/path/to/images
+├── foo
+│   └── sqr_square.jpg
+├── tall_portrait.jpg
+└── wide_landscape.jpg
+```
+
+# Usage
+
+Run `imgorisort --help` to see the usage text:
+
+```
+imgorisort 0.2.0
 Image Orientation Sorter
 
 USAGE:
@@ -44,6 +80,7 @@ FLAGS:
     -h, --help         Prints help information
     -q, --quiet        Do not print anything to stdout or stderr.
     -r, --recursive    Recurse into subdirectories.
+        --rename       Prepend image orientation to filename instead of moving file.
     -V, --version      Prints version information
     -v, --verbose      Increase output verbosity by adding more flags: [-v|-vv|-vvv]
 
