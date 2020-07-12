@@ -82,15 +82,23 @@ fn iterate_files(opts: &Opt) -> u32 {
         .min_depth(1)
         .max_depth(max_depth)
         .into_iter()
-        .filter_entry( |inpath| has_image_extension(inpath.path()) )
-        .filter_map( |inpath| inpath.ok() )
+        .filter_entry( |inpath| {
+            trace!("Checking img extension for {}", inpath.path().to_str().unwrap_or("") ) ;
+            has_image_extension(inpath.path())
+        })
+        .filter_map( |inpath| inpath.ok())
         .filter_map( |inpath| {
             if opts.rename {
+                trace!("Finding rename path for {}", inpath.path().to_str().unwrap_or("") );
                 get_src_dest_paths(&opts, inpath.path()).ok()
             } else {
+                trace!("Finding move path for {}", inpath.path().to_str().unwrap_or("") );
                 get_src_dest_paths(&opts, inpath.path()).ok()
             }})
-        .filter_map( |sd| rename(&sd.0, &sd.1).ok() )
+        .filter_map( |sd| {
+            trace!("Attempting fs::rename on {:?}", sd);
+            rename(&sd.0, &sd.1).ok()
+        })
         .fold(0, |i, _| i + 1)
 }
 
@@ -116,7 +124,7 @@ fn prepend_orientation(p: &Path) -> Result<PathBuf, std::io::ErrorKind> {
 
 fn image_orientation(img_path: &Path) -> Result<Orientation, std::io::ErrorKind> {
     let (x, y) = match image_dimensions(img_path) {
-        Ok(xy) => xy,
+        Ok(xy) => {xy},
         Err(_) => return Err(std::io::ErrorKind::InvalidData),
     };
     match x.cmp(&y) {
@@ -139,17 +147,26 @@ fn get_src_dest_paths(opts: &Opt, inpath: &Path) -> Result<(PathBuf, PathBuf), s
     };
     let ori: Orientation = match image_orientation(inpath) {
         Ok(ori) => ori,
-        Err(e) => return Err(e),
+        Err(e) => {
+            warn!("Image orientation matching error {:?}", e);
+            return Err(e)
+        },
     };
     let out = match opts.rename {
         true => match prepend_orientation(inpath) {
-            Ok(pathbuf) => pathbuf,
-            Err(e) => return Err(e)
+            Ok(prepended_inpath) => {
+                trace!("Rename {:?} to {:?}", inpath, prepended_inpath);
+                prepended_inpath},
+            Err(e) => {
+                warn!("Error prepending orientation to filename {:?}, error: {:?}", inpath, e);
+                return Err(e)
+            },
         },
         false => {
             let mut out = opts.output_dir.to_owned();
             out.push(ori.to_arrstr().as_str());
             out.push(imgfile);
+            trace!("Move {:?} to {:?}", inpath, out);
             out
         },
     };
@@ -160,10 +177,18 @@ fn get_src_dest_paths(opts: &Opt, inpath: &Path) -> Result<(PathBuf, PathBuf), s
 fn has_image_extension(path: &Path) -> bool {
     let extension = match path.extension() {
         Some(extension) => match extension.to_str() {
-            Some(extension) => extension,
-            None => return false
+            Some(extension) => {
+                trace!("{:?} has extension {:?}", path, extension);
+                extension
+            },
+            None => {
+                trace!("{:?} has no extension str.", path);
+                return false
+            },
         },
-        None => return false
+        None => {
+            trace!("{:?} has no extension.", path); return false
+        }
     };
     let ac = unsafe {
         AhoCorasickBuilder::new()
@@ -179,5 +204,6 @@ fn has_image_extension(path: &Path) -> bool {
                 FourChar::from_str_unchecked("ico"),
                 FourChar::from_str_unchecked("tiff"),
                 FourChar::from_str_unchecked("bmp"),]) };
+    trace!{"Image extension matched: {:?}", ac.is_match(extension)}
     ac.is_match(extension)
 }
