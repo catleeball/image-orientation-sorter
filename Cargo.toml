@@ -21,15 +21,10 @@ clap = "^2.33.1"
 image = { version = "^0.23.6", features = ["gif", "jpeg", "ico", "png", "tiff", "webp", "bmp", "jpeg_rayon"] }
 log = "^0.4.8"
 failure = "^0.1.8"
-smartstring = "^0.2.2"
 stderrlog = "^0.4.3"
 structopt = "^0.3.12"
 walkdir = "^2.3.1"
 
 [profile.release]
 opt-level = 3
-debug = false
-debug-assertions = false
-overflow-checks = false
 codegen-units = 1
-inline-threshold = 512

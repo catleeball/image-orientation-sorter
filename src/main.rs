@@ -6,7 +6,6 @@ use arraystring::{ArrayString, typenum::U4};
 use aho_corasick::AhoCorasickBuilder;
 use image::image_dimensions;
 use failure::Error;
-use smartstring::alias::String;
 use std::cmp::Ordering;
 use std::fs::{create_dir_all, rename};
 use std::path::{Path, PathBuf};
@@ -45,10 +44,9 @@ struct Opt {
 
 fn main() -> Result<(), Error> {
     let opts: Opt = init();
-    make_output_orientation_dirs(&opts)?;
-    let src_dest_map = read_files(&opts);
-    debug!("File sources and destinations: {:#?}", src_dest_map);
-    move_files(src_dest_map);
+    if !opts.rename { make_output_orientation_dirs(&opts)?; } 
+    let num_moved = iterate_files(&opts);
+    if !opts.quiet { println!("Processed {} files successfully.", num_moved) }
     Ok(())
 }
 
@@ -67,24 +65,15 @@ fn init() -> Opt {
 
 /// Create directories to place each orientation of image into.
 fn make_output_orientation_dirs(opts: &Opt) -> Result<(), Error> {
-    if !opts.rename {
-        let outstr = opts.output_dir.to_str().unwrap_or("");
-        create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
-        create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
-        create_dir_all(format!("{}/{}", outstr, Orientation::Square.to_arrstr()))?;
-    }
+    let outstr = opts.output_dir.to_str().unwrap_or("");
+    create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
+    create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
+    create_dir_all(format!("{}/{}", outstr, Orientation::Square.to_arrstr()))?;
     Ok(())
 }
 
-/// Move files to new destination, suppress all errors, overwrite dest files, return no metadata.
-fn move_files(mut src_dest_map: Vec<(PathBuf, PathBuf)>) -> () {
-    src_dest_map.drain(..)
-                .filter_map( |sd| rename(Path::new(&sd.0), Path::new(&sd.1)).ok() )
-                .collect()
-}
-
-/// Recursively walk input directory, return a vector of image source paths to destination paths.
-fn read_files(opts: &Opt) -> Vec<(PathBuf, PathBuf)> {
+/// Walk intput dir and move files to output dir. Quietly ignore all errors.
+fn iterate_files(opts: &Opt) -> u32 {
     let max_depth: usize = match opts.recursive {
         true => 255,
         false => 1,
@@ -95,12 +84,52 @@ fn read_files(opts: &Opt) -> Vec<(PathBuf, PathBuf)> {
         .into_iter()
         .filter_entry( |inpath| has_image_extension(inpath.path()) )
         .filter_map( |inpath| inpath.ok() )
-        .filter_map( |inpath| get_src_dest_paths(inpath.path(), opts.output_dir.to_owned()).ok() )
-        .collect()
+        .filter_map( |inpath| {
+            if opts.rename {
+                get_src_dest_paths(&opts, inpath.path()).ok()
+            } else {
+                get_src_dest_paths(&opts, inpath.path()).ok()
+            }})
+        .filter_map( |sd| rename(&sd.0, &sd.1).ok() )
+        .fold(0, |i, _| i + 1)
+}
+
+/// Prepend the image orientation to its filename.
+fn prepend_orientation(p: &Path) -> Result<PathBuf, std::io::ErrorKind> {
+    let mut name = p.to_owned();
+    let ori = match image_orientation(p) {
+        Ok(ori) => ori,
+        Err(_) => {
+            warn!("Dimensions not found in {}.", p.display());
+            return Err(std::io::ErrorKind::InvalidData);
+        }
+    };
+    name.set_file_name(
+        format!(
+            "{}_{}",
+            ori.to_arrstr().as_str(),
+            p.file_name().unwrap().to_str().unwrap()
+        )
+    );
+    Ok(name.to_path_buf())
+}
+
+fn image_orientation(img_path: &Path) -> Result<Orientation, std::io::ErrorKind> {
+    let (x, y) = match image_dimensions(img_path) {
+        Ok(xy) => xy,
+        Err(_) => return Err(std::io::ErrorKind::InvalidData),
+    };
+    match x.cmp(&y) {
+        Ordering::Greater => { Ok(Orientation::Wide)   },
+        Ordering::Less    => { Ok(Orientation::Tall)   },
+        Ordering::Equal   => { Ok(Orientation::Square) },
+    }
 }
 
 /// Find destination path based on image orientation.
-fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, PathBuf), std::io::ErrorKind> {
+fn get_src_dest_paths(opts: &Opt, inpath: &Path) -> Result<(PathBuf, PathBuf), std::io::ErrorKind> {
+    // TODO: Use relative dest paths when dest is inside src dir.
+    // TODO: Maybe make separate get src & get dest functions, zip them, then operate on them for extensibility.
     let imgfile = match inpath.file_name() {
         Some(imgfile) => imgfile,
         None => {
@@ -108,30 +137,23 @@ fn get_src_dest_paths(inpath: &Path, mut outpath: PathBuf) -> Result<(PathBuf, P
             return Err(std::io::ErrorKind::InvalidInput);
         },
     };
-    let (x, y) = match image_dimensions(inpath) {
-        Ok(xy) => xy,
-        Err(e) => {
-            warn!("Dimensions not found in {}. Error {}", inpath.display(), e);
-            return Err(std::io::ErrorKind::InvalidData);
-        }
+    let ori: Orientation = match image_orientation(inpath) {
+        Ok(ori) => ori,
+        Err(e) => return Err(e),
     };
-    match x.cmp(&y) {
-        Ordering::Greater => {
-            outpath.push(Orientation::Wide.to_arrstr().as_str());
-            outpath.push(imgfile);
-            Ok( (inpath.to_path_buf(), outpath) )
+    let out = match opts.rename {
+        true => match prepend_orientation(inpath) {
+            Ok(pathbuf) => pathbuf,
+            Err(e) => return Err(e)
         },
-        Ordering::Less => {
-            outpath.push(Orientation::Tall.to_arrstr().as_str());
-            outpath.push(imgfile);
-            Ok( (inpath.to_path_buf(), outpath) )
-        }
-        Ordering::Equal => {
-            outpath.push(Orientation::Square.to_arrstr().as_str());
-            outpath.push(imgfile);
-            Ok( (inpath.to_path_buf(), outpath) )
-        }
-    }
+        false => {
+            let mut out = opts.output_dir.to_owned();
+            out.push(ori.to_arrstr().as_str());
+            out.push(imgfile);
+            out
+        },
+    };
+    Ok( (inpath.to_path_buf(), out) )
 }
 
 /// Return true if the given path has an image file extension.
