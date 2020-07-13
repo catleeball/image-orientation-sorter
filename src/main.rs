@@ -5,7 +5,6 @@ extern crate stderrlog;
 use arraystring::{ArrayString, typenum::U4};
 use aho_corasick::AhoCorasickBuilder;
 use image::image_dimensions;
-use failure::Error;
 use std::cmp::Ordering;
 use std::fs::{create_dir_all, rename};
 use std::path::{Path, PathBuf};
@@ -42,11 +41,11 @@ struct Opt {
     quiet: bool,
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> std::io::Result<()> {
     let opts: Opt = init();
     if !opts.rename {
         create_orientation_dirs(&opts)?;
-    } else { 
+    } else {
         drop(&opts.output_dir);
     };
     let images = image_paths(&opts);
@@ -72,7 +71,7 @@ fn init() -> Opt {
 }
 
 /// Create directories to place each orientation of image into.
-fn create_orientation_dirs(opts: &Opt) -> Result<(), Error> {
+fn create_orientation_dirs(opts: &Opt) -> std::io::Result<()> {
     let outstr = opts.output_dir.to_str().unwrap_or("");
     create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
     create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
@@ -99,56 +98,51 @@ fn image_paths(opts: &Opt) -> Vec<PathBuf> {
 }
 
 /// Given a set of image paths, find where they should be moved to (including in-place renaming).
-fn get_dsts(opts: &Opt, imgs: &Vec<PathBuf>) -> Vec<PathBuf>{
+fn get_dsts(opts: &Opt, imgs: &Vec<PathBuf>) -> Vec<Option<PathBuf>> {
     imgs.iter()
         .map(|img| dst_path(opts, img))
-        .filter_map(|dst| dst.ok())
         .collect()
 }
 
 /// Find destination path based on image orientation.
-fn dst_path(opts: &Opt, img_path: &Path) -> Result<PathBuf, std::io::ErrorKind> {
+fn dst_path(opts: &Opt, img_path: &Path) -> Option<PathBuf> {
     let imgfile = img_path.file_name().unwrap();
     let ori: Orientation = match image_orientation(img_path) {
-        Ok(ori) => ori,
-        Err(e) => {
-            warn!("Image orientation matching error {:?}", e);
-            return Err(e)
-        },
+        Some(ori) => ori,
+        None => return None
     };
-    let out = match opts.rename {
+    match opts.rename {
         true => match prepend_orientation(img_path) {
-            Ok(renamed) => {
+            Some(renamed) => {
                 trace!("Rename {:?} to {:?}", img_path, renamed);
-                renamed
+                Some(renamed)
             },
-            Err(e) => {
-                warn!("Error prepending orientation to filename {:?}, error: {:?}", img_path, e);
-                return Err(e)
-            },
+            None => return None
         },
         false => {
             let mut out = opts.output_dir.to_owned();
             out.push(ori.to_arrstr().as_str());
             out.push(imgfile);
             trace!("Move {:?} to {:?}", img_path, out);
-            out
+            Some(out)
         },
-    };
-    Ok(out)
+    }
 }
 
 /// Iterate source and destination path vectors, moving matching indexes.
-fn mv_files(src_paths: &Vec<PathBuf>, dst_paths: Vec<PathBuf>) -> u16 {
-    if src_paths.len() != dst_paths.len() {
-        panic!("oopsie woopsie we made a fucky wucky");
-    }
+fn mv_files(src_paths: &Vec<PathBuf>, dst_paths: Vec<Option<PathBuf>>) -> u16 {
     src_paths
         .iter()
         .zip(dst_paths.iter())
+        .filter_map( |sd| {
+            match sd.1.is_none() {
+                true => None,
+                false => Some(sd),
+            }
+        })
         .map( |sd| {
             trace!("Attempting fs::rename on {:?}", sd);
-            match rename(&sd.0, &sd.1) {
+            match rename(&sd.0, sd.1.as_ref().unwrap() ) {
                 Ok(_) => 1,
                 Err(e) => {
                     error!("Failed to move\n  {:?}\nto\n  {:?}\nError: {:?}.", sd.0, sd.1, e);
@@ -160,27 +154,27 @@ fn mv_files(src_paths: &Vec<PathBuf>, dst_paths: Vec<PathBuf>) -> u16 {
 }
 
 /// Determine the orientation of an image.
-fn image_orientation(img_path: &Path) -> Result<Orientation, std::io::ErrorKind> {
+fn image_orientation(img_path: &Path) -> Option<Orientation> {
     let (x, y) = match image_dimensions(img_path) {
         Ok(xy) => {xy},
-        Err(_) => return Err(std::io::ErrorKind::InvalidData),
+        Err(e) => {
+            warn!("Error finding orientation of image: {:?}. Image will not be moved or renamed. Error: {:?}", img_path, e);
+            return None
+        }
     };
     match x.cmp(&y) {
-        Ordering::Greater => { Ok(Orientation::Wide)   },
-        Ordering::Less    => { Ok(Orientation::Tall)   },
-        Ordering::Equal   => { Ok(Orientation::Square) },
+        Ordering::Greater => { Some(Orientation::Wide)   },
+        Ordering::Less    => { Some(Orientation::Tall)   },
+        Ordering::Equal   => { Some(Orientation::Square) },
     }
 }
 
 /// Prepend the image orientation to its filename.
-fn prepend_orientation(p: &Path) -> Result<PathBuf, std::io::ErrorKind> {
+fn prepend_orientation(p: &Path) -> Option<PathBuf> {
     let mut name = p.to_owned();
     let ori = match image_orientation(p) {
-        Ok(ori) => ori,
-        Err(_) => {
-            warn!("Dimensions not found in {}.", p.display());
-            return Err(std::io::ErrorKind::InvalidData);
-        }
+        Some(ori) => ori,
+        None => return None
     };
     name.set_file_name(
         format!(
@@ -189,7 +183,7 @@ fn prepend_orientation(p: &Path) -> Result<PathBuf, std::io::ErrorKind> {
             p.file_name().unwrap().to_str().unwrap()
         )
     );
-    Ok(name)
+    Some(name)
 }
 
 /// Return true if the given path has an image file extension.

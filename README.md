@@ -26,7 +26,7 @@ $ tree /path/to/images
 ├── portrait.jpg
 └── landscape.jpg
 
-$ imgorisort -r --rename /path/to/images
+$ imgorisort -r /path/to/images
 Processed 3 files successfully.
 
 $ tree /path/to/images
@@ -54,7 +54,7 @@ $ tree /path/to/images
 ├── portrait.jpg
 └── landscape.jpg
 
-$ imgorisort -r /path/to/images
+$ imgorisort -r --rename /path/to/images
 Processed 3 files successfully.
 
 $ tree /path/to/images
