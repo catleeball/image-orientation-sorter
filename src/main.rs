@@ -72,6 +72,9 @@ fn init() -> Opt {
 
 /// Create directories to place each orientation of image into.
 fn create_orientation_dirs(opts: &Opt) -> std::io::Result<()> {
+    // TODO: Instead of panicking when output dirs cannot be written, prompt user
+    //       asking if they would like to rename in-place instead. Output error messages,
+    //       and kindly suggest to the user to chown dirs with permission errors.
     let outstr = opts.output_dir.to_str().unwrap_or("");
     create_dir_all(format!("{}/{}", outstr, Orientation::Tall.to_arrstr()))?;
     create_dir_all(format!("{}/{}", outstr, Orientation::Wide.to_arrstr()))?;
@@ -79,13 +82,19 @@ fn create_orientation_dirs(opts: &Opt) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Walk the input directory, possibly recursively, and return paths of image files.
 fn image_paths(opts: &Opt) -> Vec<PathBuf> {
     let max_depth: usize = match opts.recursive {
         true => 255,
         false => 1,
     };
+    // If the supplied input path is a file, operate on it alone.
+    let min_depth: usize = match opts.input_dir.is_dir() {
+        true => 1,
+        false => 0,
+    };
     WalkDir::new(&opts.input_dir)
-        .min_depth(0)
+        .min_depth(min_depth)
         .max_depth(max_depth)
         .into_iter()
         .filter_map( |dir| dir.ok() )
@@ -98,6 +107,8 @@ fn image_paths(opts: &Opt) -> Vec<PathBuf> {
 }
 
 /// Given a set of image paths, find where they should be moved to (including in-place renaming).
+///
+/// Source files with a destination of None will not be acted upon.
 fn get_dsts(opts: &Opt, imgs: &Vec<PathBuf>) -> Vec<Option<PathBuf>> {
     imgs.iter()
         .map(|img| dst_path(opts, img))
@@ -131,6 +142,12 @@ fn dst_path(opts: &Opt, img_path: &Path) -> Option<PathBuf> {
 
 /// Iterate source and destination path vectors, moving matching indexes.
 fn mv_files(src_paths: &Vec<PathBuf>, dst_paths: Vec<Option<PathBuf>>) -> u16 {
+    if src_paths.len() != dst_paths.len() {
+        // TODO: While this hopefully won't happen if all errors are propagated forward as Nones,
+        //       consider writing function to normalize src & dst vectors based on path similarity.
+        // TODO: Be sure to test this case when writing tests.
+        panic!("Source files do not match calculated destination files.");
+    }
     src_paths
         .iter()
         .zip(dst_paths.iter())
