@@ -5,7 +5,7 @@
 
 [package]
 name = "imgorisort"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["🎷🐛 Lee Ball <lee.cat.ball@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"
