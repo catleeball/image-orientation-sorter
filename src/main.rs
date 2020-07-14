@@ -180,8 +180,8 @@ fn image_orientation(img_path: &Path) -> Option<Orientation> {
         }
     };
     match x.cmp(&y) {
-        Ordering::Greater => { Some(Orientation::Wide)   },
-        Ordering::Less    => { Some(Orientation::Tall)   },
+        Ordering::Less    => { Some(Orientation::Wide) },
+        Ordering::Greater => { Some(Orientation::Tall) },
         Ordering::Equal   => { Some(Orientation::Square) },
     }
 }
