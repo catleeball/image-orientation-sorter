@@ -16,7 +16,7 @@ This small tool's first release includes only the basic functionality: move imag
 
 ### Move images
 
-Move images to 'tall', 'wide', and 'square' directories.
+Move images to 'tall', 'wide', and 'square' directories. Use --overwrite if these directories exist, and you want files with the same name to overwrite files in destination directories instread of appending a number to the name.
 
 ```
 $ tree /path/to/images
@@ -70,7 +70,7 @@ $ tree /path/to/images
 Run `imgorisort --help` to see the usage text:
 
 ```
-imgorisort 0.2.0
+imgorisort 0.3.0
 Image Orientation Sorter
 
 USAGE:
@@ -78,11 +78,13 @@ USAGE:
 
 FLAGS:
     -h, --help         Prints help information
+        --overwrite    Overrwite files in the destination directory if file names are the same. Without this flag set,
+                       the default behavior is to append a number to make the filename unique.
     -q, --quiet        Do not print anything to stdout or stderr.
     -r, --recursive    Recurse into subdirectories.
         --rename       Prepend image orientation to filename instead of moving file.
     -V, --version      Prints version information
-    -v, --verbose      Increase output verbosity by adding more flags: [-v|-vv|-vvv]
+    -v, --verbose      Increase output verbosity by adding more flags: [-v|-vv|-vvv|-vvvv|-vvvvv]
 
 ARGS:
     <input-dir>     Directory containing image files to sort by orientation.
