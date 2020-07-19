@@ -272,3 +272,35 @@ fn has_image_extension(path: &Path) -> bool {
     debug!("{:?} is an image? -> {:?}", path, is_img);
     is_img
 }
+
+// Unit tests ====================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile;
+
+    fn test_opts() -> Opt {
+        Opt {
+            input_dir:  tempfile::tempdir().unwrap().path().to_path_buf(),
+            output_dir: tempfile::tempdir().unwrap().path().to_path_buf(),
+            recursive:  false,
+            rename:     false,
+            verbose:    5,
+            quiet:      false,
+            overwrite:  false,
+        }
+    }
+
+    #[test]
+    fn test_create_orientation_dirs() {
+        let opts = test_opts();
+        let ret = create_orientation_dirs(&opts);
+        assert_eq!(ret.is_ok(), true);
+        let dirs_exist: bool =
+            Path::new("/tmp/wide").exists() &&
+            Path::new("/tmp/tall").exists() &&
+            Path::new("/tmp/sqr").exists();
+        assert_eq!(dirs_exist, true)
+    }
+}

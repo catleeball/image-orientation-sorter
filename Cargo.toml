@@ -14,6 +14,9 @@ homepage = "https://github.com/catleeball/image-orientation-sorter"
 repository = "https://github.com/catleeball/image-orientation-sorter"
 description = "Quickly sort images into directories by orientation: tall, wide, and square."
 
+[dev-dependencies]
+tempfile = "^3.1.0"
+
 [dependencies]
 aho-corasick = "^0.7.13"
 arraystring = "0.3.0"
