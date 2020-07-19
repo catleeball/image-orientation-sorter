@@ -303,4 +303,12 @@ mod tests {
             Path::new("/tmp/sqr").exists();
         assert_eq!(dirs_exist, true)
     }
+
+    fn test_image_paths() {}
+    fn test_get_dsts() {}
+    fn test_dst_path() {}
+    fn test_mv_files() {}
+    fn test_image_orientation() {}
+    fn test_prepend_orientation() {}
+    fn test_make_uniq() {}
 }
