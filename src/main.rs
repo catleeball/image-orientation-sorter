@@ -279,6 +279,8 @@ fn has_image_extension(path: &Path) -> bool {
 mod tests {
     use super::*;
     use tempfile;
+    // use std::panic;
+    // use image::RgbImage;
 
     fn test_opts() -> Opt {
         Opt {
@@ -292,23 +294,48 @@ mod tests {
         }
     }
 
+    // /// Generate array of 3 images; wide, tall, and square.
+    // fn get_test_images() -> [RgbImage; 3] {
+    //     [RgbImage::new(2, 3), RgbImage::new(3, 2), RgbImage::new(2, 2)]
+    // }
+
+    // fn setup_test() {// Do setup.}
+    // fn teardown_test() {// Do teardown.}
+    /// Run test with setup and teardown methods.
+    /// Implementation from: https://link.medium.com/bpO6CcH8f8
+    // fn run_test<T>(test: T) -> ()
+    // where T: FnOnce() -> () + panic::UnwindSafe {
+    //     setup_test();
+    //     let result = panic::catch_unwind( || { test() } );
+    //     teardown_test();
+    //     assert!(result.is_ok())
+    // }
+
     #[test]
     fn test_create_orientation_dirs() {
         let opts = test_opts();
         let ret = create_orientation_dirs(&opts);
         assert_eq!(ret.is_ok(), true);
-        let dirs_exist: bool =
-            Path::new("/tmp/wide").exists() &&
-            Path::new("/tmp/tall").exists() &&
-            Path::new("/tmp/sqr").exists();
-        assert_eq!(dirs_exist, true)
+        let mut wts: (u8, u8, u8) = (0, 0, 0);
+        for dir in WalkDir::new(&opts.output_dir).into_iter().filter_map(|e| e.ok()) {
+            println!("Walking testdir...");
+            println!("  {:?}", dir);
+            if dir.file_type().is_dir() {
+                println!("  Is directory: {:?}", dir);
+                if dir.path().ends_with("wide") { wts.0 += 1 }
+                if dir.path().ends_with("tall") { wts.1 += 1 }
+                if dir.path().ends_with("sqr")  { wts.2 += 1 }
+            }
+        }
+        println!("wts: {:?}", wts);
+        assert_eq!( true, wts.0 == 1 && wts.1 == 1 && wts.2 == 1 );
     }
 
-    fn test_image_paths() {}
-    fn test_get_dsts() {}
-    fn test_dst_path() {}
-    fn test_mv_files() {}
-    fn test_image_orientation() {}
-    fn test_prepend_orientation() {}
-    fn test_make_uniq() {}
+    // fn test_image_paths() {let root = tempfile::tempdir();}
+    // fn test_get_dsts() {}
+    // fn test_dst_path() {}
+    // fn test_mv_files() {}
+    // fn test_image_orientation() {}
+    // fn test_prepend_orientation() {}
+    // fn test_make_uniq() {}
 }
