@@ -403,7 +403,37 @@ mod tests {
     
     #[test]
     fn test_get_dsts() {
+        init();
+        let mut opts = test_opts();
+        let root = test_dir_tree();
+        populate_dir_tree(root.path());
+        opts.input_dir = root.path().to_owned();
 
+        // Non-recursive walk. Expect 3 images.
+        let src_paths = image_paths(&opts);
+        assert_eq!(src_paths.len(), 3);
+        let dst_paths = get_dsts(&opts, &src_paths);
+        assert_eq!(dst_paths.len(), 3);
+        drop(src_paths);
+        drop(dst_paths);
+
+        // Recursive walk. Expect 15 images.
+        opts.recursive = true;
+        let src_paths = image_paths(&opts);
+        assert_eq!(src_paths.len(), 15);
+        let dst_paths = get_dsts(&opts, &src_paths);
+        assert_eq!(dst_paths.len(), 15);
+        drop(src_paths);
+        drop(dst_paths);
+
+        // Recursive walk with overwrite. Expect 3 images (all images in tree are named 'w.png', 't.png', or 's.png').
+        opts.recursive = true;
+        let src_paths = image_paths(&opts);
+        assert_eq!(src_paths.len(), 15);
+        let dst_paths = get_dsts(&opts, &src_paths);
+        assert_eq!(dst_paths.len(), 15);
+        drop(src_paths);
+        drop(dst_paths);
     }
 
     // fn test_dst_path() {}
