@@ -340,12 +340,10 @@ mod tests {
     }
 
     /// Write a wide, tall, and square image to a given path.
-    fn write_test_images<S>(pathstr: S) where S: Into<String> + std::fmt::Display {
-        RgbImage::new(2, 3).save( Path::new( &{
-            let s = format!("{}{}", pathstr, "/w.png");
-            trace!("[setup] Attempting to write image to {}", s);
-            s
-        } ) ).unwrap();
+    fn write_test_images<S>(pathstr: S)
+    where S: Into<String> + std::fmt::Display
+    {
+        RgbImage::new(2, 3).save( Path::new( &format!("{}{}", pathstr, "/w.png") ) ).unwrap();
         RgbImage::new(3, 2).save( Path::new( &format!("{}{}", pathstr, "/t.png") ) ).unwrap();
         RgbImage::new(2, 2).save( Path::new( &format!("{}{}", pathstr, "/s.png") ) ).unwrap();
     }
@@ -402,7 +400,12 @@ mod tests {
         debug!("Src paths: {:#?}", src_paths);
         assert_eq!(src_paths.len(), 15);
     }
-    // fn test_get_dsts() {}
+    
+    #[test]
+    fn test_get_dsts() {
+
+    }
+
     // fn test_dst_path() {}
     // fn test_mv_files() {}
     // fn test_image_orientation() {}
