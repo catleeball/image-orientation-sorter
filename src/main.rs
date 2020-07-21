@@ -427,11 +427,12 @@ mod tests {
         drop(dst_paths);
 
         // Recursive walk with overwrite. Expect 3 images (all images in tree are named 'w.png', 't.png', or 's.png').
-        opts.recursive = true;
+        // already set // opts.recursive = true;
+        opts.overwrite = true;
         let src_paths = image_paths(&opts);
-        assert_eq!(src_paths.len(), 15);
+        assert_eq!(src_paths.len(), 3);
         let dst_paths = get_dsts(&opts, &src_paths);
-        assert_eq!(dst_paths.len(), 15);
+        assert_eq!(dst_paths.len(), 3);
         drop(src_paths);
         drop(dst_paths);
     }
