@@ -68,8 +68,8 @@ fn main() -> std::io::Result<()> {
     } else {
         drop(&opts.output_dir);
     };
-    let images = image_paths(&opts);
-    let dests = get_dsts(&opts, &images);
+    let images: Vec<PathBuf> = image_paths(&opts);
+    let dests: Vec<Option<PathBuf>> = get_dsts(&opts, &images);
     let moved: u32 = mv_files(&images, dests, &opts);
     if !opts.quiet {
         println!("Processed {} files successfully.", moved);
@@ -271,4 +271,169 @@ fn has_image_extension(path: &Path) -> bool {
     let is_img: bool = AC.is_match(extension);
     debug!("{:?} is an image? -> {:?}", path, is_img);
     is_img
+}
+
+// ==================== Unit tests ==================== //
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::{TempDir, tempdir};
+    // use std::panic;
+    use image::RgbImage;
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    fn test_opts() -> Opt {
+        Opt {
+            input_dir:  tempdir().unwrap().path().to_path_buf(),
+            output_dir: tempdir().unwrap().path().to_path_buf(),
+            recursive:  false,
+            rename:     false,
+            verbose:    5,
+            quiet:      false,
+            overwrite:  false,
+        }
+    }
+
+    /// Initialize module exactly once for all test runs.
+    pub fn init() {
+        INIT.call_once(|| {
+            stderrlog::new()
+                .module(module_path!())
+                .quiet(false)
+                .verbosity(5)
+                .init()
+                .unwrap();
+        });
+    }
+
+    /// Create test directory structure.
+    /// root
+    /// ├── level_one_a
+    /// │   └── level_two
+    /// │       └── level_two
+    /// │           └── level_three
+    /// └── level_one_b
+    fn test_dir_tree() -> TempDir {
+        let root = tempdir().unwrap();
+        let rootstr = root.path().to_str().unwrap();
+        create_dir_all(format!("{}{}", rootstr, "/level_one_a/level_two/level_three")).unwrap();
+        create_dir_all(format!("{}{}", rootstr, "/level_one_b")).unwrap();
+        return root
+    }
+
+    /// Traverse a directory tree and write_test_images in each directory.
+    fn populate_dir_tree(root: &Path) {
+        for dir in WalkDir::new(root)
+            .min_depth(0)
+            .max_depth(5)
+            .into_iter()
+            .filter_map(|d| d.ok())
+            .filter(|d| d.file_type().is_dir())
+        {
+            write_test_images(
+                dir.into_path().to_str().unwrap_or("UNWRAP_DIR_NAME_FAILED_IN_POPULATE_DIR_TREE")
+            );
+        }
+    }
+
+    /// Write a wide, tall, and square image to a given path.
+    fn write_test_images<S>(pathstr: S)
+    where S: Into<String> + std::fmt::Display
+    {
+        RgbImage::new(2, 3).save( Path::new( &format!("{}{}", pathstr, "/w.png") ) ).unwrap();
+        RgbImage::new(3, 2).save( Path::new( &format!("{}{}", pathstr, "/t.png") ) ).unwrap();
+        RgbImage::new(2, 2).save( Path::new( &format!("{}{}", pathstr, "/s.png") ) ).unwrap();
+    }
+
+    // fn setup_test() {// Do setup.}
+    // fn teardown_test() {// Do teardown.}
+    // fn run_test<T>(test: T) -> ()
+    // where T: FnOnce() -> () + panic::UnwindSafe {
+    //     setup_test();
+    //     let result = panic::catch_unwind( || { test() } );
+    //     teardown_test();
+    //     assert!(result.is_ok())
+    // } // https://link.medium.com/bpO6CcH8f8
+
+    #[test]
+    fn test_create_orientation_dirs() {
+        init();
+        let opts = test_opts();
+        let ret = create_orientation_dirs(&opts);
+        assert_eq!(ret.is_ok(), true);
+        let mut wts: (u8, u8, u8) = (0, 0, 0);
+        for dir in WalkDir::new(&opts.output_dir).min_depth(0).max_depth(5).into_iter().filter_map(|e| e.ok()) {
+            debug!("[test_create_orientation_dirs] Walking testdir...");
+            debug!("[test_create_orientation_dirs]  {:?}", dir);
+            if dir.file_type().is_dir() {
+                debug!("[test_create_orientation_dirs]  Is directory: {:?}", dir);
+                if dir.path().ends_with("wide") { wts.0 += 1 }
+                if dir.path().ends_with("tall") { wts.1 += 1 }
+                if dir.path().ends_with("sqr")  { wts.2 += 1 }
+            }
+        }
+        debug!("[test_create_orientation_dirs] wide, tall, square: {:?}", wts);
+        assert_eq!( true, wts.0 == 1 && wts.1 == 1 && wts.2 == 1 );
+    }
+
+    #[test]
+    fn test_image_paths() {
+        init();
+        let mut opts = test_opts();
+        let root = test_dir_tree();
+        populate_dir_tree(root.path());
+        opts.input_dir = root.path().to_owned();
+
+        // Non-recursive walk. Expect 3 images in root dir.
+        let src_paths = image_paths(&opts);
+        debug!("[test_image_paths; non-recursive] Src paths: {:#?}", src_paths);
+        assert_eq!(src_paths.len(), 3);
+        drop(src_paths);
+
+        // Recursive walk. Expect 15 images in dir tree.
+        opts.recursive = true;
+        let src_paths = image_paths(&opts);
+        debug!("[test_image_paths; recursive]Src paths: {:#?}", src_paths);
+        assert_eq!(src_paths.len(), 15);
+    }
+    
+    #[test]
+    fn test_get_dsts() {
+        init();
+        let mut opts = test_opts();
+        let root = test_dir_tree();
+        populate_dir_tree(root.path());
+        opts.input_dir = root.path().to_owned();
+
+        // Non-recursive walk. Expect 3 images.
+        let src_paths = image_paths(&opts);
+        debug!("[test_image_paths; non-recursive] Src paths: {:#?}", src_paths);
+        assert_eq!(src_paths.len(), 3);
+        let dst_paths = get_dsts(&opts, &src_paths);
+        debug!("[test_image_paths; non-recursive] Dst paths: {:?}", dst_paths);
+        assert_eq!(dst_paths.len(), 3);
+        drop(src_paths);
+        drop(dst_paths);
+
+        // Recursive walk. Expect 15 images.
+        opts.recursive = true;
+        let src_paths = image_paths(&opts);
+        debug!("[test_image_paths; recursive] Src paths: {:#?}", src_paths);
+        assert_eq!(src_paths.len(), 15);
+        let dst_paths = get_dsts(&opts, &src_paths);
+        debug!("[test_image_paths; recursive] Dst paths: {:?}", dst_paths);
+        assert_eq!(dst_paths.len(), 15);
+        drop(src_paths);
+        drop(dst_paths);
+    }
+
+    // dst_path() functionality is already tested through test_get_dsts().
+    // fn test_dst_path() {}
+    // fn test_mv_files() {}
+    // fn test_image_orientation() {}
+    // fn test_prepend_orientation() {}
+    // fn test_make_uniq() {}
 }
