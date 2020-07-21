@@ -68,8 +68,8 @@ fn main() -> std::io::Result<()> {
     } else {
         drop(&opts.output_dir);
     };
-    let images = image_paths(&opts);
-    let dests = get_dsts(&opts, &images);
+    let images: Vec<PathBuf> = image_paths(&opts);
+    let dests: Vec<Option<PathBuf>> = get_dsts(&opts, &images);
     let moved: u32 = mv_files(&images, dests, &opts);
     if !opts.quiet {
         println!("Processed {} files successfully.", moved);
@@ -366,16 +366,16 @@ mod tests {
         assert_eq!(ret.is_ok(), true);
         let mut wts: (u8, u8, u8) = (0, 0, 0);
         for dir in WalkDir::new(&opts.output_dir).min_depth(0).max_depth(5).into_iter().filter_map(|e| e.ok()) {
-            debug!("Walking testdir...");
-            debug!("  {:?}", dir);
+            debug!("[test_create_orientation_dirs] Walking testdir...");
+            debug!("[test_create_orientation_dirs]  {:?}", dir);
             if dir.file_type().is_dir() {
-                debug!("  Is directory: {:?}", dir);
+                debug!("[test_create_orientation_dirs]  Is directory: {:?}", dir);
                 if dir.path().ends_with("wide") { wts.0 += 1 }
                 if dir.path().ends_with("tall") { wts.1 += 1 }
                 if dir.path().ends_with("sqr")  { wts.2 += 1 }
             }
         }
-        debug!("wide, tall, square: {:?}", wts);
+        debug!("[test_create_orientation_dirs] wide, tall, square: {:?}", wts);
         assert_eq!( true, wts.0 == 1 && wts.1 == 1 && wts.2 == 1 );
     }
 
@@ -386,18 +386,17 @@ mod tests {
         let root = test_dir_tree();
         populate_dir_tree(root.path());
         opts.input_dir = root.path().to_owned();
-        debug!("Dir tree at: {:?}", opts.input_dir);
 
         // Non-recursive walk. Expect 3 images in root dir.
         let src_paths = image_paths(&opts);
-        debug!("Src paths: {:#?}", src_paths);
+        debug!("[test_image_paths; non-recursive] Src paths: {:#?}", src_paths);
         assert_eq!(src_paths.len(), 3);
         drop(src_paths);
 
         // Recursive walk. Expect 15 images in dir tree.
         opts.recursive = true;
         let src_paths = image_paths(&opts);
-        debug!("Src paths: {:#?}", src_paths);
+        debug!("[test_image_paths; recursive]Src paths: {:#?}", src_paths);
         assert_eq!(src_paths.len(), 15);
     }
     
@@ -411,8 +410,10 @@ mod tests {
 
         // Non-recursive walk. Expect 3 images.
         let src_paths = image_paths(&opts);
+        debug!("[test_image_paths; non-recursive] Src paths: {:#?}", src_paths);
         assert_eq!(src_paths.len(), 3);
         let dst_paths = get_dsts(&opts, &src_paths);
+        debug!("[test_image_paths; non-recursive] Dst paths: {:?}", dst_paths);
         assert_eq!(dst_paths.len(), 3);
         drop(src_paths);
         drop(dst_paths);
@@ -420,23 +421,16 @@ mod tests {
         // Recursive walk. Expect 15 images.
         opts.recursive = true;
         let src_paths = image_paths(&opts);
+        debug!("[test_image_paths; recursive] Src paths: {:#?}", src_paths);
         assert_eq!(src_paths.len(), 15);
         let dst_paths = get_dsts(&opts, &src_paths);
+        debug!("[test_image_paths; recursive] Dst paths: {:?}", dst_paths);
         assert_eq!(dst_paths.len(), 15);
-        drop(src_paths);
-        drop(dst_paths);
-
-        // Recursive walk with overwrite. Expect 3 images (all images in tree are named 'w.png', 't.png', or 's.png').
-        // already set // opts.recursive = true;
-        opts.overwrite = true;
-        let src_paths = image_paths(&opts);
-        assert_eq!(src_paths.len(), 3);
-        let dst_paths = get_dsts(&opts, &src_paths);
-        assert_eq!(dst_paths.len(), 3);
         drop(src_paths);
         drop(dst_paths);
     }
 
+    // dst_path() functionality is already tested through test_get_dsts().
     // fn test_dst_path() {}
     // fn test_mv_files() {}
     // fn test_image_orientation() {}
