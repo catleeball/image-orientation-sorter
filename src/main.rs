@@ -278,14 +278,17 @@ fn has_image_extension(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile;
+    use tempfile::{TempDir, tempdir};
     // use std::panic;
-    // use image::RgbImage;
+    use image::RgbImage;
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
 
     fn test_opts() -> Opt {
         Opt {
-            input_dir:  tempfile::tempdir().unwrap().path().to_path_buf(),
-            output_dir: tempfile::tempdir().unwrap().path().to_path_buf(),
+            input_dir:  tempdir().unwrap().path().to_path_buf(),
+            output_dir: tempdir().unwrap().path().to_path_buf(),
             recursive:  false,
             rename:     false,
             verbose:    5,
@@ -294,44 +297,113 @@ mod tests {
         }
     }
 
-    // /// Generate array of 3 images; wide, tall, and square.
-    // fn get_test_images() -> [RgbImage; 3] {
-    //     [RgbImage::new(2, 3), RgbImage::new(3, 2), RgbImage::new(2, 2)]
-    // }
+    pub fn init() {
+        INIT.call_once(|| {
+            stderrlog::new()
+                .module(module_path!())
+                .quiet(false)
+                .verbosity(5)
+                .init()
+                .unwrap();
+        });
+    }
+
+    /// Create test directory structure.
+    /// root
+    /// ├── level_one_a
+    /// │   └── level_two
+    /// │       └── level_two
+    /// │           └── level_three
+    /// └── level_one_b
+    fn test_dir_tree() -> TempDir {
+        let root = tempdir().unwrap();
+        write_test_images(root.path().to_str().unwrap_or("UNWRAP_ROOT_DIR_NAME_FAILED_IN_TEST_DIR_TREE"));
+        let rootstr = root.path().to_str().unwrap();
+        create_dir_all(format!("{}{}", rootstr, "/level_one_a/level_two/level_three")).unwrap();
+        write_test_images(format!("{}{}", rootstr, "/level_one_a"));
+        write_test_images(format!("{}{}", rootstr, "/level_one_a/level_two"));
+        write_test_images(format!("{}{}", rootstr, "/level_one_a/level_two/level_three"));
+        create_dir_all(format!("{}{}", rootstr, "/level_one_b")).unwrap();
+        write_test_images(format!("{}{}", rootstr, "/level_one_b"));
+        return root
+    }
+
+    /// Traverse a directory tree and write three images in each directory.
+    fn populate_dir_tree(root: &Path) {
+        for dir in WalkDir::new(root)
+            .min_depth(0)
+            .max_depth(5)
+            .into_iter()
+            .filter_map(|d| d.ok())
+            .filter(|d| d.file_type().is_dir())
+        {
+            write_test_images(dir.into_path().to_str().unwrap_or("UNWRAP_DIR_NAME_FAILED_IN_POPULATE_DIR_TREE"));
+        }
+    }
+
+    /// Write a wide, tall, and square image to a given path.
+    fn write_test_images<S>(pathstr: S) where S: Into<String> + std::fmt::Display {
+        RgbImage::new(2, 3).save( Path::new( &{
+            let s = format!("{}{}", pathstr, "/w.png");
+            trace!("[setup] Attempting to write image to {}", s);
+            s
+        } ) ).unwrap();
+        RgbImage::new(3, 2).save( Path::new( &format!("{}{}", pathstr, "/t.png") ) ).unwrap();
+        RgbImage::new(2, 2).save( Path::new( &format!("{}{}", pathstr, "/s.png") ) ).unwrap();
+    }
 
     // fn setup_test() {// Do setup.}
     // fn teardown_test() {// Do teardown.}
-    /// Run test with setup and teardown methods.
-    /// Implementation from: https://link.medium.com/bpO6CcH8f8
     // fn run_test<T>(test: T) -> ()
     // where T: FnOnce() -> () + panic::UnwindSafe {
     //     setup_test();
     //     let result = panic::catch_unwind( || { test() } );
     //     teardown_test();
     //     assert!(result.is_ok())
-    // }
+    // } // https://link.medium.com/bpO6CcH8f8
 
     #[test]
     fn test_create_orientation_dirs() {
+        init();
         let opts = test_opts();
         let ret = create_orientation_dirs(&opts);
         assert_eq!(ret.is_ok(), true);
         let mut wts: (u8, u8, u8) = (0, 0, 0);
-        for dir in WalkDir::new(&opts.output_dir).into_iter().filter_map(|e| e.ok()) {
-            println!("Walking testdir...");
-            println!("  {:?}", dir);
+        for dir in WalkDir::new(&opts.output_dir).min_depth(0).max_depth(5).into_iter().filter_map(|e| e.ok()) {
+            debug!("Walking testdir...");
+            debug!("  {:?}", dir);
             if dir.file_type().is_dir() {
-                println!("  Is directory: {:?}", dir);
+                debug!("  Is directory: {:?}", dir);
                 if dir.path().ends_with("wide") { wts.0 += 1 }
                 if dir.path().ends_with("tall") { wts.1 += 1 }
                 if dir.path().ends_with("sqr")  { wts.2 += 1 }
             }
         }
-        println!("wts: {:?}", wts);
+        debug!("wide, tall, square: {:?}", wts);
         assert_eq!( true, wts.0 == 1 && wts.1 == 1 && wts.2 == 1 );
     }
 
-    // fn test_image_paths() {let root = tempfile::tempdir();}
+    #[test]
+    fn test_image_paths() {
+        init();
+        let mut opts = test_opts();
+        let root = test_dir_tree();
+        populate_dir_tree(root.path());
+        opts.input_dir = root.path().to_owned();
+        debug!("Dir tree at: {:?}", opts.input_dir);
+
+        // Non-recursive walk. Expect 3 images in root dir.
+        let src_paths = image_paths(&opts);
+        debug!("Src paths: {:#?}", src_paths);
+        assert_eq!(src_paths.len(), 3);
+        drop(src_paths);
+
+        // Recursive walk. Expect 15 images in dir tree.
+        opts.recursive = true;
+        let src_paths = image_paths(&opts);
+        debug!("Src paths: {:#?}", src_paths);
+        assert_eq!(src_paths.len(), 15);
+    }
     // fn test_get_dsts() {}
     // fn test_dst_path() {}
     // fn test_mv_files() {}
