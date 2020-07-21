@@ -273,7 +273,7 @@ fn has_image_extension(path: &Path) -> bool {
     is_img
 }
 
-// Unit tests ====================
+// ==================== Unit tests ==================== //
 
 #[cfg(test)]
 mod tests {
@@ -297,6 +297,7 @@ mod tests {
         }
     }
 
+    /// Initialize module exactly once for all test runs.
     pub fn init() {
         INIT.call_once(|| {
             stderrlog::new()
@@ -317,18 +318,13 @@ mod tests {
     /// └── level_one_b
     fn test_dir_tree() -> TempDir {
         let root = tempdir().unwrap();
-        write_test_images(root.path().to_str().unwrap_or("UNWRAP_ROOT_DIR_NAME_FAILED_IN_TEST_DIR_TREE"));
         let rootstr = root.path().to_str().unwrap();
         create_dir_all(format!("{}{}", rootstr, "/level_one_a/level_two/level_three")).unwrap();
-        write_test_images(format!("{}{}", rootstr, "/level_one_a"));
-        write_test_images(format!("{}{}", rootstr, "/level_one_a/level_two"));
-        write_test_images(format!("{}{}", rootstr, "/level_one_a/level_two/level_three"));
         create_dir_all(format!("{}{}", rootstr, "/level_one_b")).unwrap();
-        write_test_images(format!("{}{}", rootstr, "/level_one_b"));
         return root
     }
 
-    /// Traverse a directory tree and write three images in each directory.
+    /// Traverse a directory tree and write_test_images in each directory.
     fn populate_dir_tree(root: &Path) {
         for dir in WalkDir::new(root)
             .min_depth(0)
@@ -337,7 +333,9 @@ mod tests {
             .filter_map(|d| d.ok())
             .filter(|d| d.file_type().is_dir())
         {
-            write_test_images(dir.into_path().to_str().unwrap_or("UNWRAP_DIR_NAME_FAILED_IN_POPULATE_DIR_TREE"));
+            write_test_images(
+                dir.into_path().to_str().unwrap_or("UNWRAP_DIR_NAME_FAILED_IN_POPULATE_DIR_TREE")
+            );
         }
     }
 
